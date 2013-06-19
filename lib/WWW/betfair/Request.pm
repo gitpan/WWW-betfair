@@ -3,8 +3,6 @@ use strict;
 use warnings;
 use LWP::UserAgent;
 use HTTP::Request;
-use XML::Simple;
-use Carp qw/croak/;
 
 =head2 new_request
 
@@ -25,13 +23,6 @@ sub new_request
     $request->header(Accept_Encoding => "gzip");
     $request->content($xmlmessage);
     $request->content_type("text/xml; charset=utf-8");
-    
-    # parse and return response
-    my $xmlresponse = $userAgent->request($request);
-    my $response = eval {XMLin( $xmlresponse->decoded_content(charset => 'none') )};
-    if ($@) {
-        croak 'error parsing betfair XML response ' . $@;
-    }
-    return $response;
+    return $userAgent->request($request);
 }
 1;

@@ -1,5 +1,8 @@
 Revision history for WWW-betfair
 
+0.02    18 June 2013
+        Fixed login method, added new test file, corrected documentation.
+
 0.01    15 June 2013
         Initial version with some API methods released.
 

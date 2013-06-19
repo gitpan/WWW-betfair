@@ -19,9 +19,11 @@ no_index:
     - inc
 requires:
   Carp: 1.26
+  Crypt::Blowfish: 2.12
+  Crypt::CBC: 2.32
   HTTP::Request: 6
   LWP::UserAgent: 6.05
   Time::Piece: 1.2
   XML::Simple: 2.2
   perl: 5.006
-version: 0.01
+version: 0.02

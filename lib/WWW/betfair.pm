@@ -4,6 +4,9 @@ use warnings;
 use WWW::betfair::Template;
 use WWW::betfair::Request;
 use Time::Piece;
+use XML::Simple;
+use Carp qw /croak/;
+use feature qw/switch/;
 
 =head1 NAME
 
@@ -15,18 +18,51 @@ Version 0.01
 
 =cut
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 
 =head1 WARNING
 
 This version of the WWW::betfair is beta - it has not been thoroughly tested nor is type checking performed on the arguments passed to betfair. Therefore be cautious and check all argument types and values before using the methods in this library. Ensure that you adequately test any method of L<WWW::betfair> before using the method. As per the software license it is provided AS IS and no liability is accepted for any costs or penalties caused by using L<WWW::betfair>. 
 
-To understand how to use the betfair API it is essential to read  the L<'betfair documentation'|http://bdp.betfair.com/docs/> before using L<WWW::betfair>. The betfair documentation is an excellent reference which also explains some of the quirks and bugs with the current betfair API.
+To understand how to use the betfair API it is essential to read  the L<betfair documentation|http://bdp.betfair.com/docs/> before using L<WWW::betfair>. The betfair documentation is an excellent reference which also explains some of the quirks and bugs with the current betfair API.
+
+=head1 WHAT IS BETFAIR?
+
+L<betfair|http://www.betfair.com> is a sports betting services provider best known for hosting a sports betting exchange. The sports betting exchange works like a marketplace: betfair provides an anonymous platform for individuals to offer and take bets on sports events at a certain price and size; it is the ebay of betting. betfair provides an API for the sports betting exchange which enables users to search for sports events and markets, place and update bets and manage their account by depositing and withdrawing funds.
+
+
+=head1 WHY USE THIS LIBRARY?
+
+The betfair API communicates using verbose XML files which contain various bugs and quirks. L<WWW::betfair> makes it easier to use the betfair API by providing a Perl interface which manages the befair session, serializing API calls to betfair into the required XML format and de-serializing and parsing the betfair responses back into Perl data structures.
+
 
 =head1 SYNOPSIS
 
-L<WWW::betfair> provides an object oriented Perl interface for the betfair v6 API. This library communicates via HTTPS to the betfair servers using XML. To use the API you must have an active and funded account with betfair, and be accessing the API from a location where betfair permits use (e.g. USA based connections are refused, but UK connections are allowed).
+L<WWW::betfair> provides an object oriented Perl interface for the betfair v6 API. This library communicates via HTTPS to the betfair servers using XML. To use the API you must have an active and funded account with betfair, and be accessing the API from a location where betfair permits use (e.g. USA based connections are refused, but UK connections are allowed). L<WWW::betfair> provides methods to connect to the betfair exchange, search for market prices place and update bets and manage your betfair account.
+
+Example
+
+    use WWW::betfair;
+    use Data::Dumper;
+
+    my $betfair = WWW::betfair->new;
+    
+    # login is required before performing any other services
+    if ($betfair->login({username => 'sillymoos', password => 'password123'}) {
+        
+        # check account balance
+        print Dumper($betfair->getAccountFunds);
+
+        # get a list of all active event types (categories of sporting events e.g. football, tennis, boxing).
+        print Dumper($betfair->getActiveEventTypes);
+
+    }
+    # if login failed print the error message returned by betfair
+    else {
+        print Dumper($betfair->getError);
+    }
+
 
 =head1 TO DO
 
@@ -42,7 +78,7 @@ Enable use of Australian exchange server - currently this is not supported
 
 =item *
 
-Add remaining L<'betfair API methods'|http://bdp.betfair.com/docs/>
+Add remaining L<betfair API methods|http://bdp.betfair.com/docs/>
 
 =item *
 
@@ -57,6 +93,7 @@ Add more helper methods that enable easier use of the betfair API
 Returns a new WWW::betfair object. Does not require any parameters.
 
 Example
+
     my $betfair = WWW::betfair->new;
 
 =cut
@@ -65,14 +102,59 @@ sub new {
     my $class = shift;
     my $self = {
         xmlsent     => undef,
-        error       => 'no error message set',
+        xmlreceived => undef,
+        headerError => undef,
+        bodyError   => undef,
         response    => {},
         sessionToken=> undef,
     };
     return bless $self, $class;
 }
 
+=head2 getError
 
+Returns the error message from the betfair API response. Upon a successful call API the value returned by getError is usually 'OK'.
+
+=cut
+
+sub getError {
+    my $self = shift;
+    return  $self->{headerError} eq 'OK' ? $self->{bodyError} : $self->{headerError};
+}
+
+
+=head2 getXMLSent
+
+Returns a string of the XML message sent to betfair. This can be useful to inspect if de-bugging a failed API call.
+
+=cut
+
+sub getXMLSent {
+    my $self = shift;
+    return $self->{xmlsent};
+}
+
+=head2 getXMLReceived
+
+Returns a string of the XML message received from betfair. This can be useful to inspect if de-bugging a failed API call.
+
+=cut
+
+sub getXMLReceived {
+    my $self = shift;
+    return $self->{xmlreceived};
+}
+
+=head2 getHashReceived
+
+Returns a Perl data structure consisting of the entire de-serialized betfair XML response. This can be useful to inspect if de-bugging a failed API call and easier to read than the raw XML message, especially if used in conjunction with L<Data::Dumper>.
+
+=cut
+
+sub getHashReceived {
+    my $self = shift;
+    return $self->{response};
+}
 
 =head1 GENERAL API SERVICES METHODS
 
@@ -98,6 +180,7 @@ productID: integer that indicates the API product to be used (optional). This de
 =back
 
 Example
+
     $betfair->login({
                 username => 'sillymoos',
                 password => 'password123',
@@ -115,10 +198,7 @@ sub login {
         ipAddress   => 0,
         vendorId    => 0,
     };
-    if ($self->_do_request('login', $params)) {
-        return 1;
-    }
-    return 0;
+    return $self->_do_request('login', 3, $params); 
 }
 
 =head2 keepAlive
@@ -126,17 +206,14 @@ sub login {
 Refreshes the current session with betfair. Returns 1 on success and 0 on failure. See L<http://bdp.betfair.com/docs/keepAlive.html> for details. Does not require any parameters. This method is not normally required as a session expires after 24 hours of inactivity.
 
 Example
+
     $betfair->keepAlive;
 
 =cut
 
 sub keepAlive {
     my ($self) = @_;
-    if ($self->_do_request('keepAlive', {})) {
-        return 1;
-    }
-    return 0;
-
+    return $self->_do_request('keepAlive', 3, {});
 }
 
 =head2 logout
@@ -144,17 +221,20 @@ sub keepAlive {
 Closes the current session with betfair. Returns 1 on success and 0 on failure. See L<http://bdp.betfair.com/docs/Logout.html> for details. Does not require any parameters.
 
 Example
+
     $betfair->logout;
 
 =cut
 
 sub logout {
     my ($self) = @_;
-    if ($self->_do_request('logout', {})) {
-        return 1;
+    if ($self->_do_request('logout', 3, {})) {
+        # check body error message, different to header error
+        my $self->{error} 
+            = $self->{response}->{'soap:Body'}->{'n:logoutResponse'}->{'n:Result'}->{'errorCode'}->{'content'};
+        return 1 if $self->{error} eq 'OK';
     }
     return 0;
-
 }
 
 =head1 READ ONLY BETTING API SERVICES
@@ -164,6 +244,7 @@ sub logout {
 Returns an array of hashes of active event types or 0 on failure. See L<http://bdp.betfair.com/docs/GetActiveEventTypes.html> for details. Does not require any parameters.
 
 Example
+
     my $activeEventTypes = $betfair->getActiveEventTypes;
 
 =cut
@@ -171,7 +252,7 @@ Example
 sub getActiveEventTypes {
     my $self = shift;
     my $active_event_types =[];
-    if ($self->_do_request('getActiveEventTypes', {}) ) {
+    if ($self->_do_request('getActiveEventTypes', 3, {}) ) {
         foreach (@{$self->{response}->{'soap:Body'}->{'n:getActiveEventTypesResponse'}->{'n:Result'}->{'eventTypeItems'}->{'n2:EventType'}}) {
             push(@{$active_event_types},{ 
                 name            => $_->{'name'}->{'content'},
@@ -190,13 +271,14 @@ sub getActiveEventTypes {
 Returns an array of hashes of all event types or 0 on failure. See L<http://bdp.betfair.com/docs/GetAllEventTypes.html> for details. Does not require any parameters.
 
 Example
+
     my $allEventTypes = $betfair->getAllEventTypes;
 
 =cut
 
 sub getAllEventTypes {
     my $self = shift;
-    if ($self->_do_request('getAllEventTypes', {})) {
+    if ($self->_do_request('getAllEventTypes', 3, {})) {
         my $all_event_types = [];
         foreach (@{$self->{response}->{'soap:Body'}->{'n:getAllEventTypesResponse'}->{'n:Result'}->{'eventTypeItems'}->{'n2:EventType'} }) {
             push(@{$all_event_types},{
@@ -216,13 +298,14 @@ sub getAllEventTypes {
 Returns an array of hashes of all markets or 0 on failure. See L<http://bdp.betfair.com/docs/GetAllMarkets.html> for details. Does not require any parameters.
 
 Example
+
     my $allMarkets = $betfair->getAllMarkets;
 
 =cut
 
 sub getAllMarkets {
     my $self = shift;
-    if ($self->_do_request('getAllMarkets', {})) {
+    if ($self->_do_request('getAllMarkets', 1, {})) {
         my $all_markets = [];
         foreach (split /[^\\]:/, $self->{response}->{'soap:Body'}->{'n:getAllMarketsResponse'}->{'n:Result'}->{'marketData'}->{'content'}) {
             my @market = split /~/, $_;
@@ -277,7 +360,7 @@ recordCount : integer of the maximum number of records to return
 startRecord : integer of the index of the first record to retrieve. The index is zero-based so 0 would indicate the first record in the resultset
 
 =item *
-    
+
 noTotalRecordCount : string of either true or false
 
 =item *
@@ -287,6 +370,7 @@ marketId : integer of the betfair market id for which current bets are required 
 =back
 
 Example
+
     my $bets = $betfair->getCurrentBets({
                             betStatus           => 'M',
                             detailed            => 'false',
@@ -300,7 +384,7 @@ Example
 
 sub getCurrentBets {
     my ($self, $args) = @_;
-    if ($self->_do_request('getCurrentBets', $args) ) {
+    if ($self->_do_request('getCurrentBets', 1, $args) ) {
         my $response = $self->_force_array(
                 $self->{response}->{'soap:Body'}->{'n:getCurrentBetsResponse'}->{'n:Result'}->{'bets'}->{'n2:Bet'});
         my $current_bets = [];
@@ -346,6 +430,7 @@ eventParentId : an integer which is the betfair event id of the parent event
 =back
 
 Example
+
     # betfair event id of tennis is 14
     my $tennisEvents = $betfair->getEvents({eventParentId => 14});
 
@@ -353,7 +438,7 @@ Example
 
 sub getEvents {
     my ($self, $args) = @_;
-    if ($self->_do_request('getEvents', $args)) {
+    if ($self->_do_request('getEvents', 3, $args)) {
         my $event_response = $self->_force_array($self->{response}->{'soap:Body'}->{'n:getEventsResponse'}->{'n:Result'}->{'eventItems'}->{'n2:BFEvent'});
         my $event_parent_id = $self->{response}->{'soap:Body'}->{'n:getEventsResponse'}->{'n:Result'}->{'eventParentId'}->{'content'};
         my $events;
@@ -418,6 +503,7 @@ marketId : integer which is the betfair id of the market
 =back
 
 Example
+
     my $marketData = $betfair->getMarket({marketId => 108690258});
 
 =cut
@@ -425,7 +511,7 @@ Example
 
 sub getMarket {
     my ($self, $args) = @_;
-    if ($self->_do_request('getMarket', $args) ) {
+    if ($self->_do_request('getMarket', 1, $args) ) {
         my $response = $self->{response}->{'soap:Body'}->{'n:getMarketResponse'}->{'n:Result'}->{'market'};
         my $runners_list = $self->_force_array($response->{'runners'}->{'n2:Runner'});
         my @parsed_runners = ();
@@ -460,19 +546,20 @@ Returns a hashref of market data including an arrayhashref of individual runners
 marketId : integer of the betfair market id,
 
 =item *
-         
+
 currencyCode : string of the three letter ISO 4217 currency code (optional). If this is not provided, the users home currency is used
 
 =back
 
 Example
+
     my $marketPriceData = $betfair->getCompleteMarketPrices({marketId => 123456789, currencyCode => 'GBP'}); 
 
 =cut
 
 sub getCompleteMarketPrices {
     my ($self, $args) = @_;
-    if ($self->_do_request('getCompleteMarketPricesCompressed', $args)) {
+    if ($self->_do_request('getCompleteMarketPricesCompressed', 1, $args)) {
         my @compressed_prices = split /:/, $self->{response}->{'soap:Body'}->{'n:getCompleteMarketPricesCompressedResponse'}->{'n:Result'}->{'completeMarketPrices'}->{'content'};
         my $compressed_prices_ref = { marketId => shift @compressed_prices };
         foreach (@compressed_prices) {
@@ -542,21 +629,22 @@ recordCount : integer of the maximum number of records to return
 
 startRecord : integer of the index of the first record to retrieve. The index is zero-based so 0 would indicate the first record in the resultset
 
-=item *    
-    
+=item *
+
 noTotalRecordCount : string of either true or false
 
 =item *
 
 marketId : integer of the betfair market id for which current bets are required (optional)
 
-=item *    
-    
+=item *
+
 betId : an array of betIds (optional). If included, betStatus must be 'MU'.
 
 =back
 
 Example
+
     my $muBets = $betfair->getMUBets({
                             betStatus           => 'MU',
                             recordCount         => 1000,
@@ -570,7 +658,7 @@ Example
 sub getMUBets {
     my ($self, $args ) = @_;
     my $mu_bets = [];
-    if ($self->_do_request('getMUBets', $args)) {
+    if ($self->_do_request('getMUBets', 1, $args)) {
         my $response = $self->_force_array(
             $self->{response}->{'soap:Body'}->{'n:getMUBetsResponse'}->{'n:Result'}->{'bets'}->{'n2:MUBet'});
         foreach (@{$response} ) {
@@ -616,6 +704,7 @@ betIds : an arrayref of integers of betIds that should be cancelled, up to 40 be
 =back
 
 Example
+
     my $cancelledBetsResults = $betfair->cancelBets({betIds => [123456789, 987654321]});
 
 =cut
@@ -632,7 +721,7 @@ sub cancelBets {
                    },
     };
 
-    if ($self->_do_request('cancelBets', $params)) {
+    if ($self->_do_request('cancelBets', 1, $params)) {
         my $response = $self->_force_array( 
             $self->{response}->{'soap:Body'}->{'n:cancelBetsResponse'}->{'n:Result'}->{'betResults'}->{'n2:CancelBetsResult'});
         foreach (@{$response} ) {
@@ -707,7 +796,8 @@ size : number for the stake amount for this bet.
 =back
 
 Example
-    # place one bet to back selection 99 on market 123456789 at 5-to-1 for £10 
+
+    # place one bet to back selection 99 on market 123456789 at 5-to-1 for 10 
     $myBetPlacedResults = $betfair->placeBets({
                                         bets => [{ 
                                                 asianLineId         => 0,
@@ -733,7 +823,7 @@ sub placeBets {
                             PlaceBets =>  $args->{bets},
                    },
     };
-    if ($self->_do_request('placeBets', $params) ) {
+    if ($self->_do_request('placeBets', 1, $params) ) {
         my $response = $self->_force_array($self->{response}->{'soap:Body'}->{'n:placeBetsResponse'}->{'n:Result'}->{'betResults'}->{'n2:PlaceBetsResult'});
         my $placed_bets = [];
         foreach (@{$response}) {
@@ -796,6 +886,7 @@ oldSize : number for the old size of the bet
 
 
 Example
+
     my $updateBetDetails = $betfair->updateBets({
                                         bets => [{
                                                 betId                   => 12345,
@@ -819,7 +910,7 @@ sub updateBets {
         },
     };
     my $updated_bets = [];
-    if ($self->_do_request('updateBets', $params)) {
+    if ($self->_do_request('updateBets', 1, $params)) {
         my $response = $self->_force_array($self->{response}->{'soap:Body'}->{'n:updateBetsResponse'}->{'n:Result'}->{'betResults'}->{'n2:UpdateBetsResult'});
         foreach (@{$response}) {
             push @{$updated_bets}, {
@@ -917,6 +1008,7 @@ country : string of the country for the payment card
 =back
 
 Example
+
     my $addPaymentCardResponse = $betfair->addPaymentCard({
                                             cardNumber  => '1234123412341234',
                                             cardType    => 'VISA',
@@ -937,7 +1029,7 @@ Example
 
 sub addPaymentCard {
     my ($self, $args) = @_;
-    if ($self->_do_request('addPaymentCard', $args) ) {
+    if ($self->_do_request('addPaymentCard', 3, $args) ) {
         return  $self->_add_payment_card_line([], $self->{response}->{'soap:Body'}->{'n:addPaymentCardResponse'}->{'n:Result'}->{'n2:PaymentCard'});
     }
     return 0;
@@ -968,6 +1060,7 @@ password : string of the betfair account password
 =back
 
 Example
+
     # deposit £10 in my account
     my $depositResponse = $betfair->depositFromPaymentCard({
                                             amount          => 10,
@@ -981,7 +1074,7 @@ Example
 sub depositFromPaymentCard {
     my ($self, $args) = @_;
 
-    if ($self->_do_request('depositFromPaymentCard', $args)) {
+    if ($self->_do_request('depositFromPaymentCard', 3, $args)) {
         my $deposit_response = $self->{response}->{'soap:Body'}->{'n:depositFromPaymentCardResponse'}->{'n:Result'};
         return  {
             fee                 => $deposit_response->{'fee'}->{'content'},
@@ -1001,13 +1094,14 @@ sub depositFromPaymentCard {
 Returns a hashref of the account funds betfair response. See L<http://bdp.betfair.com/docs/GetAccountFunds.html> for details. No parameters are required.
 
 Example
+
     my $funds = $betfair->getAccountFunds;
 
 =cut
 
 sub getAccountFunds {
     my ($self) = @_;
-    if ($self->_do_request('getAccountFunds',{})) {
+    if ($self->_do_request('getAccountFunds', 1, {})) {
         return {
             availBalance => $self->{response}->{'soap:Body'}->{'n:getAccountFundsResponse'}->{'n:Result'}->{'availBalance'}->{'content'},
             balance => $self->{response}->{'soap:Body'}->{'n:getAccountFundsResponse'}->{'n:Result'}->{'balance'}->{'content'},
@@ -1047,6 +1141,7 @@ itemsIncluded : string of the betfair AccountStatementIncludeEnum see l<http://b
 =back
 
 Example
+
     # return an account statement for all activity starting at record 1 up to 1000 records between 1st January 2013 and 16th June 2013
     my $statement = $betfair->getAccountStatement({
                                     startRecord     => 0,
@@ -1062,7 +1157,7 @@ sub getAccountStatement {
     my ($self, $args) = @_; 
 
     my $account_statement;
-    if ($self->_do_request('getAccountStatement', $args)) {
+    if ($self->_do_request('getAccountStatement', 1, $args)) {
         my $response = 
             $self->_force_array($self->{response}->{'soap:Body'}->{'n:getAccountStatementResponse'}->{'n:Result'}->{'items'}->{'n2:AccountStatementItem'});
         foreach (@{$response} ) {
@@ -1107,6 +1202,7 @@ sub getAccountStatement {
 Returns an arrayref of hashes of payment card or 0 on failure. See L<http://bdp.betfair.com/docs/GetPaymentCard.html> for details. Does not require any parameters.
 
 Example
+
     my $cardDetails = $betfair->getPaymentCard;
 
 =cut
@@ -1114,7 +1210,7 @@ Example
 sub getPaymentCard {
     my ($self, $args) = @_;
     my $payment_cards = [];
-    if ($self->_do_request('getPaymentCard', $args) ) {
+    if ($self->_do_request('getPaymentCard', 3, $args) ) {
         my $response = $self->_force_array(
                 $self->{response}->{'soap:Body'}->{'n:getPaymentCardResponse'}->{'n:Result'}->{'paymentCardItems'}->{'n2:PaymentCard'});
         foreach (@{$response}) {
@@ -1130,6 +1226,7 @@ sub getPaymentCard {
 Returns an arrayref of hashes of subscription or 0 on failure. Does not require any parameters. See L<http://bdp.betfair.com/docs/GetSubscriptionInfo.html> for details. Note that if you are using the personal free betfair API, this service will return no data.
 
 Example
+
     my $subscriptionData = $betfair->getSubscriptionInfo;
 
 =cut
@@ -1137,7 +1234,7 @@ Example
 
 sub getSubscriptionInfo {
     my ($self, $args) = @_;
-    if ($self->_do_request('getSubscriptionInfo', $args) ) {
+    if ($self->_do_request('getSubscriptionInfo', 3, $args) ) {
         my $response = $self->{response}->{'soap:Body'}->{'n:getSubscriptionInfoResponse'}->{'n:Result'};
         return {
             minor_error_code    => $response->{'minorErrorCode'}->{'content'},
@@ -1177,6 +1274,7 @@ password : string of your betfair password
 =back
 
 Example
+
     my $withdrawalResult = $betfair->withdrawToPaymentCard({
                                         amount          => 10,
                                         cardIdentifier  => 'checking',
@@ -1187,7 +1285,7 @@ Example
 
 sub withdrawToPaymentCard {
     my ($self, $args) = @_; 
-    if ($self->_do_request('withdrawToPaymentCard', $args) ) {
+    if ($self->_do_request('withdrawToPaymentCard', 3, $args) ) {
         my $response = $self->{response}->{'soap:Body'}->{'n:withdrawToPaymentCardResponse'}->{'n:Result'};
         return {
             amount_withdrawn   => $response->{'amountWithdrawn'}->{'content'},
@@ -1202,7 +1300,7 @@ sub withdrawToPaymentCard {
 =head1 HELPER METHODS
 
 =head2 getMarketPricesCombined
- 
+
 This is a helper method not provided by the betfair API. It returns a combined structure of the results of getMarket and getCompleteMarketPrices so that detailed runner and market information is combined with the complete betfair price data. Requires:
 
 =over
@@ -1214,6 +1312,7 @@ marketId : integer of the betfair market id
 =back
 
 Example
+
     # call getMarket and getCompleteMarketPrices and combine them into a single structure
     my $completeMarketData = $betfair->getMarketPricesCombined({marketId => 123456789});
 
@@ -1242,42 +1341,62 @@ sub getMarketPricesCombined {
 =head1 INTERNAL METHODS
 
 =head2 _do_request
- 
+
 Processes requests to and from the betfair API.
 
 =cut
 
 sub _do_request {
-    my ($self, $action, $params) = @_;
+    my ($self, $action, $server, $params) = @_;
   
     # add header to $params
     $params->{header}->{sessionToken} = $self->{sessionToken} if defined $self->{sessionToken}; 
     $params->{header}->{clientStamp} = 0;
 
-    # use global URI if action requested is a global API method
-    my @global_api_methods = qw /addPaymentCard convertCurrency createAccount deletePaymentCard depositFromPaymentCard forgotPassword getActiveEventTypes getAllCurrencies getAllEventTypes getEvents getPaymentCard getSubscriptionInfo keepAlive login logout modifyPassword modifyProfile retrieveLIMBMessage selfExclude setChatName submitLIMBMessage transferFunds updatePaymentCard viewProfile viewProfileV2 viewReferAndEarn withdrawToPaymentCard/;
-
-    my $uri = (grep { /$action/ } @global_api_methods) 
-        ? 'https://api.betfair.com/global/v3/BFGlobalService' : 'https://api.betfair.com/exchange/v5/BFExchangeService';
+    my $uri = $self->_getServerURI($server);
 
     # build xml message
     $self->{xmlsent} = WWW::betfair::Template::populate($uri, $action, $params);
 
     # save response, session token and error as attributes
-    $self->{response} = WWW::betfair::Request::new_request($uri, $action, $self->{xmlsent});
-
+    my $uaResponse = WWW::betfair::Request::new_request($uri, $action, $self->{xmlsent});
+    $self->{xmlreceived} = $uaResponse->decoded_content(charset => 'none');
+    $self->{response} = eval {XMLin($self->{xmlreceived})};
+    if ($@) {
+        croak 'error parsing betfair XML response ' . $@;
+    }
     if ($self->{response}){
 
         $self->{sessionToken} 
             = $self->{response}->{'soap:Body'}->{'n:'.$action.'Response'}->{'n:Result'}->{'header'}->{'sessionToken'}->{'content'};
         
-        $self->{error}
-            = $self->{response}->{'soap:Body'}->{'n:'.$action.'Response'}->{'n:Result'}->{'header'}->{'errorCode'}->{'content'} || 'INTERNAL ERROR';
-        return 0 unless $self->{error} eq 'OK';
-        return 1;
+        $self->{headerError}
+            = $self->{response}->{'soap:Body'}->{'n:'.$action.'Response'}->{'n:Result'}->{'header'}->{'errorCode'}->{'content'} 
+                || 'OK';
+
+        $self->{bodyError} 
+            = $self->{response}->{'soap:Body'}->{'n:'.$action.'Response'}->{'n:Result'}->{'errorCode'}->{'content'}
+                || 'OK';
+        return 1 if $self->getError eq 'OK';
     }
     return 0;
 }
+
+=head2 _getServerURI
+
+Returns the URI for the target betfair server depending on whether it is an exchange server (1 and 2) or the global server.
+
+=cut
+
+sub _getServerURI {
+    my ($self, $server) = @_;
+    given($server) {
+        when (/1/) { return 'https://api.betfair.com/exchange/v5/BFExchangeService'}
+        when (/2/) { return 'https://api-au.betfair.com/exchange/v5/BFExchangeService'} 
+        default    { return 'https://api.betfair.com/global/v3/BFGlobalService'}
+    }
+}
+
 
 =head2 _sort_array_ref
 
@@ -1379,9 +1498,11 @@ L<http://search.cpan.org/dist/WWW-betfair/>
 
 =back
 
-
 =head1 ACKNOWLEDGEMENTS
 
+This project was inspired by the L<betfair free|http://code.google.com/p/betfairfree/> Perl project. Although L<WWW::betfair> uses a different approach, the betfair free project was a useful point of reference at inception. Thanks guys!
+
+Thanks to L<betfair|http://www.betfair.com> for creating the exchange and API.
 
 =head1 LICENSE AND COPYRIGHT
 
