@@ -25,6 +25,7 @@ WriteMakefile(
         'Carp'              => 1.26,
         'Crypt::CBC'        => 2.32,
         'Crypt::Blowfish'   => 2.12,
+        'Regexp::Common'    => 2013031301,
     },
     dist  => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean => { FILES => 'WWW-betfair-*' },

@@ -3,10 +3,12 @@ use strict;
 use warnings;
 use WWW::betfair::Template;
 use WWW::betfair::Request;
+use WWW::betfair::TypeCheck;
 use Time::Piece;
 use XML::Simple;
 use Carp qw /croak/;
 use feature qw/switch/;
+use Data::Dumper;
 
 =head1 NAME
 
@@ -14,16 +16,16 @@ WWW::betfair - interact with the betfair API using OO Perl
 
 =head1 VERSION
 
-Version 0.01
+Version 0.03
 
 =cut
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 
 =head1 WARNING
 
-This version of the WWW::betfair is beta - it has not been thoroughly tested nor is type checking performed on the arguments passed to betfair. Therefore be cautious and check all argument types and values before using the methods in this library. Ensure that you adequately test any method of L<WWW::betfair> before using the method. As per the software license it is provided AS IS and no liability is accepted for any costs or penalties caused by using L<WWW::betfair>. 
+This version of the WWW::betfair is beta - it has not been thoroughly tested. Therefore be cautious and check all argument types and values before using the methods in this library. Ensure that you adequately test any method of L<WWW::betfair> before using the method. As per the software license it is provided AS IS and no liability is accepted for any costs or penalties caused by using L<WWW::betfair>. 
 
 To understand how to use the betfair API it is essential to read  the L<betfair documentation|http://bdp.betfair.com/docs/> before using L<WWW::betfair>. The betfair documentation is an excellent reference which also explains some of the quirks and bugs with the current betfair API.
 
@@ -58,7 +60,7 @@ Example
         print Dumper($betfair->getActiveEventTypes);
 
     }
-    # if login failed print the error message returned by betfair
+    # login failed print the error message returned by betfair
     else {
         print Dumper($betfair->getError);
     }
@@ -70,19 +72,11 @@ Example
 
 =item *
 
-Add argument type checking to all methods
-
-=item *
-
 Enable use of Australian exchange server - currently this is not supported
 
 =item *
 
 Add remaining L<betfair API methods|http://bdp.betfair.com/docs/>
-
-=item *
-
-Add more helper methods that enable easier use of the betfair API
 
 =back
 
@@ -108,7 +102,10 @@ sub new {
         response    => {},
         sessionToken=> undef,
     };
-    return bless $self, $class;
+    my $obj = bless $self, $class;
+    my $typechecker = WWW::betfair::TypeCheck->new;
+    $obj->{type} = $typechecker;
+    return $obj;
 }
 
 =head2 getError
@@ -190,6 +187,12 @@ Example
 
 sub login {
     my ($self, $args) = @_;
+    my $paramChecks = { 
+            username    => ['username', 1],
+            password    => ['password', 1],
+            productId   => ['int', 0],
+    };
+    return 0 unless $self->_checkParams($paramChecks, $args);
     my $params = {
         username    => $args->{username},
         password    => $args->{password}, 
@@ -198,7 +201,7 @@ sub login {
         ipAddress   => 0,
         vendorId    => 0,
     };
-    return $self->_do_request('login', 3, $params); 
+    return $self->_doRequest('login', 3, $params); 
 }
 
 =head2 keepAlive
@@ -213,7 +216,7 @@ Example
 
 sub keepAlive {
     my ($self) = @_;
-    return $self->_do_request('keepAlive', 3, {});
+    return $self->_doRequest('keepAlive', 3, {});
 }
 
 =head2 logout
@@ -228,7 +231,7 @@ Example
 
 sub logout {
     my ($self) = @_;
-    if ($self->_do_request('logout', 3, {})) {
+    if ($self->_doRequest('logout', 3, {})) {
         # check body error message, different to header error
         my $self->{error} 
             = $self->{response}->{'soap:Body'}->{'n:logoutResponse'}->{'n:Result'}->{'errorCode'}->{'content'};
@@ -252,7 +255,7 @@ Example
 sub getActiveEventTypes {
     my $self = shift;
     my $active_event_types =[];
-    if ($self->_do_request('getActiveEventTypes', 3, {}) ) {
+    if ($self->_doRequest('getActiveEventTypes', 3, {}) ) {
         foreach (@{$self->{response}->{'soap:Body'}->{'n:getActiveEventTypesResponse'}->{'n:Result'}->{'eventTypeItems'}->{'n2:EventType'}}) {
             push(@{$active_event_types},{ 
                 name            => $_->{'name'}->{'content'},
@@ -278,7 +281,7 @@ Example
 
 sub getAllEventTypes {
     my $self = shift;
-    if ($self->_do_request('getAllEventTypes', 3, {})) {
+    if ($self->_doRequest('getAllEventTypes', 3, {})) {
         my $all_event_types = [];
         foreach (@{$self->{response}->{'soap:Body'}->{'n:getAllEventTypesResponse'}->{'n:Result'}->{'eventTypeItems'}->{'n2:EventType'} }) {
             push(@{$all_event_types},{
@@ -305,7 +308,7 @@ Example
 
 sub getAllMarkets {
     my $self = shift;
-    if ($self->_do_request('getAllMarkets', 1, {})) {
+    if ($self->_doRequest('getAllMarkets', 1, {})) {
         my $all_markets = [];
         foreach (split /[^\\]:/, $self->{response}->{'soap:Body'}->{'n:getAllMarketsResponse'}->{'n:Result'}->{'marketData'}->{'content'}) {
             my @market = split /~/, $_;
@@ -384,8 +387,18 @@ Example
 
 sub getCurrentBets {
     my ($self, $args) = @_;
-    if ($self->_do_request('getCurrentBets', 1, $args) ) {
-        my $response = $self->_force_array(
+    my $checkParams = {
+        betStatus           => ['betStatusEnum', 1],
+        detailed            => ['boolean', 1],
+        orderBy             => ['betsOrderByEnum', 1],
+        recordCount         => ['int', 1,],
+        startRecord         => ['int', 1],
+        noTotalRecordCount  => ['boolean', 1],
+        marketId            => ['int',0],
+    };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    if ($self->_doRequest('getCurrentBets', 1, $args) ) {
+        my $response = $self->_forceArray(
                 $self->{response}->{'soap:Body'}->{'n:getCurrentBetsResponse'}->{'n:Result'}->{'bets'}->{'n2:Bet'});
         my $current_bets = [];
         foreach (@{$response} ) {
@@ -438,21 +451,23 @@ Example
 
 sub getEvents {
     my ($self, $args) = @_;
-    if ($self->_do_request('getEvents', 3, $args)) {
-        my $event_response = $self->_force_array($self->{response}->{'soap:Body'}->{'n:getEventsResponse'}->{'n:Result'}->{'eventItems'}->{'n2:BFEvent'});
+    my $checkParams = { eventParentId => ['int', 1] };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    if ($self->_doRequest('getEvents', 3, $args)) {
+        my $event_response = $self->_forceArray($self->{response}->{'soap:Body'}->{'n:getEventsResponse'}->{'n:Result'}->{'eventItems'}->{'n2:BFEvent'});
         my $event_parent_id = $self->{response}->{'soap:Body'}->{'n:getEventsResponse'}->{'n:Result'}->{'eventParentId'}->{'content'};
         my $events;
         foreach (@{$event_response}) {
             $events = _add_event($events, $_, $event_parent_id);
         }
-        my $market_response = $self->_force_array(
+        my $market_response = $self->_forceArray(
                 $self->{response}->{'soap:Body'}->{'n:getEventsResponse'}->{'n:Result'}->{'marketItems'}->{'n2:MarketSummary'});  
         foreach (@{$market_response}) {
             $events = _add_market($events, $_, $event_parent_id);
         }
 
         # Coupons not currently supported by betfair API, hence deprecating this code for now:
-        #my $coupon_ref = $self->_force_array($self->{response}->{'soap:Body'}->{'n:getEventsResponse'}->{'n:Result'}->{'couponLinks'}->{'n2:CouponLink'});  
+        #my $coupon_ref = $self->_forceArray($self->{response}->{'soap:Body'}->{'n:getEventsResponse'}->{'n:Result'}->{'couponLinks'}->{'n2:CouponLink'});  
         #foreach (@{$coupon_ref}) {
         #   $events->{ 'coupon' }->{ $_->{'couponName'}->{'content'} } = $_->{'couponId'}->{'content'};
         #}
@@ -511,9 +526,11 @@ Example
 
 sub getMarket {
     my ($self, $args) = @_;
-    if ($self->_do_request('getMarket', 1, $args) ) {
+    my $checkParams = { marketId => ['int', 1] };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    if ($self->_doRequest('getMarket', 1, $args) ) {
         my $response = $self->{response}->{'soap:Body'}->{'n:getMarketResponse'}->{'n:Result'}->{'market'};
-        my $runners_list = $self->_force_array($response->{'runners'}->{'n2:Runner'});
+        my $runners_list = $self->_forceArray($response->{'runners'}->{'n2:Runner'});
         my @parsed_runners = ();
         foreach (@{$runners_list}) {
             push(@parsed_runners, {
@@ -559,7 +576,9 @@ Example
 
 sub getCompleteMarketPrices {
     my ($self, $args) = @_;
-    if ($self->_do_request('getCompleteMarketPricesCompressed', 1, $args)) {
+    my $checkParams = { marketId => ['int', 1] };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    if ($self->_doRequest('getCompleteMarketPricesCompressed', 1, $args)) {
         my @compressed_prices = split /:/, $self->{response}->{'soap:Body'}->{'n:getCompleteMarketPricesCompressedResponse'}->{'n:Result'}->{'completeMarketPrices'}->{'content'};
         my $compressed_prices_ref = { marketId => shift @compressed_prices };
         foreach (@compressed_prices) {
@@ -594,10 +613,10 @@ sub getCompleteMarketPrices {
                 near_price_sp       => $selection_metadata_array[9],
                 actual_price_sp     => $selection_metadata_array[10],
                 prices              => {
-                                    back_prices    => [_sort_array_ref($selection_back_prices_ref)], 
-                                    lay_prices     => [_sort_array_ref($selection_lay_prices_ref)],
-                                    bsp_back_prices => [_sort_array_ref($selection_bspBack_prices_ref)], 
-                                    bsp_lay_prices  => [_sort_array_ref($selection_bspLay_prices_ref)],
+                                    back_prices    => [_sortArrayRef($selection_back_prices_ref)], 
+                                    lay_prices     => [_sortArrayRef($selection_lay_prices_ref)],
+                                    bsp_back_prices => [_sortArrayRef($selection_bspBack_prices_ref)], 
+                                    bsp_lay_prices  => [_sortArrayRef($selection_bspLay_prices_ref)],
                 },
                 name            => undef, #name is added in getMarketPricesCombined method
             });
@@ -647,9 +666,11 @@ Example
 
     my $muBets = $betfair->getMUBets({
                             betStatus           => 'MU',
+                            orderBy             => 'PLACED_DATE',
                             recordCount         => 1000,
                             startRecord         => 0,
                             noTotalRecordCount  => 'true',
+                            sortOrder           => 'ASC',
                             marketId            => 123456789,
                  });
 
@@ -657,9 +678,19 @@ Example
 
 sub getMUBets {
     my ($self, $args ) = @_;
+    my $checkParams = {
+        betStatus           => ['betStatusEnum', 1],
+        orderBy             => ['betsOrderByEnum', 1],
+        recordCount         => ['int', 1,],
+        startRecord         => ['int', 1],
+        marketId            => ['int', 0],
+        sortOrder           => ['sortOrderEnum', 1],
+        betId               => ['int', 0],
+    };
+    return 0 unless $self->_checkParams($checkParams, $args);
     my $mu_bets = [];
-    if ($self->_do_request('getMUBets', 1, $args)) {
-        my $response = $self->_force_array(
+    if ($self->_doRequest('getMUBets', 1, $args)) {
+        my $response = $self->_forceArray(
             $self->{response}->{'soap:Body'}->{'n:getMUBetsResponse'}->{'n:Result'}->{'bets'}->{'n2:MUBet'});
         foreach (@{$response} ) {
             $mu_bets = _add_mu_bet($mu_bets, $_);
@@ -710,9 +741,13 @@ Example
 =cut
 
 sub cancelBets {
-    my ($self, $args ) = @_;
-    my $cancelled_bets = [];
-
+    my ($self, $args) = @_;
+    my $checkParams = {
+        betIds => ['int', 1],
+    };
+    foreach (@{$args->{betIds}}) {
+        return 0 unless $self->_checkParams($checkParams, { betIds => $_ });
+    }
     # adjust args into betfair api required structure
     my $params = { bets => {
                             CancelBets => {
@@ -720,9 +755,9 @@ sub cancelBets {
                             },
                    },
     };
-
-    if ($self->_do_request('cancelBets', 1, $params)) {
-        my $response = $self->_force_array( 
+    my $cancelled_bets = [];
+    if ($self->_doRequest('cancelBets', 1, $params)) {
+        my $response = $self->_forceArray( 
             $self->{response}->{'soap:Body'}->{'n:cancelBetsResponse'}->{'n:Result'}->{'betResults'}->{'n2:CancelBetsResult'});
         foreach (@{$response} ) {
             $cancelled_bets = _add_cancelled_bet($cancelled_bets, $_);
@@ -804,7 +839,7 @@ Example
                                                 betCategoryType     => 'E',
                                                 betPersistenceType  => 'NONE',
                                                 betType             => 'B',
-                                                bspliability        => 2,
+                                                bspLiability        => 2,
                                                 marketId            => 123456789,
                                                 price               => 5,
                                                 selectionId         => 99,
@@ -817,14 +852,27 @@ Example
 
 sub placeBets {
     my ($self, $args) = @_;
-
+    my $checkParams = { 
+        asianLineId         => ['int', 1],
+        betCategoryType     => ['betCategoryTypeEnum', 1],
+        betPersistenceType  => ['betPersistenceTypeEnum', 1],
+        betType             => ['betTypeEnum', 1],
+        bspLiability        => ['int', 1],
+        marketId            => ['int', 1],
+        price               => ['decimal', 1],
+        selectionId         => ['int', 1],
+        size                => ['decimal', 1],
+    };
+    foreach (@{$args->{bets}}) {
+        return 0 unless $self->_checkParams($checkParams, $_);
+    }
     # adjust args into betfair api required structure
     my $params = { bets => {
                             PlaceBets =>  $args->{bets},
                    },
     };
-    if ($self->_do_request('placeBets', 1, $params) ) {
-        my $response = $self->_force_array($self->{response}->{'soap:Body'}->{'n:placeBetsResponse'}->{'n:Result'}->{'betResults'}->{'n2:PlaceBetsResult'});
+    if ($self->_doRequest('placeBets', 1, $params) ) {
+        my $response = $self->_forceArray($self->{response}->{'soap:Body'}->{'n:placeBetsResponse'}->{'n:Result'}->{'betResults'}->{'n2:PlaceBetsResult'});
         my $placed_bets = [];
         foreach (@{$response}) {
             push @{$placed_bets}, {
@@ -904,14 +952,26 @@ Example
 
 sub updateBets {
     my ($self, $args) = @_;
+    my $checkParams = { 
+        betId                   => ['int', 1],
+        newBetPersistenceType   => ['betPersistenceTypeEnum', 1],
+        oldBetPersistenceType   => ['betPersistenceTypeEnum', 1],
+        newSize                 => ['decimal', 1],
+        oldSize                 => ['decimal', 1],
+        newPrice                => ['decimal', 1],
+        oldPrice                => ['decimal', 1],
+    };
+    foreach (@{$args->{bets}}) {
+        return 0 unless $self->_checkParams($checkParams, $_);
+    }
     my $params = {
         bets => {
             UpdateBets => $args->{bets},
         },
     };
     my $updated_bets = [];
-    if ($self->_do_request('updateBets', 1, $params)) {
-        my $response = $self->_force_array($self->{response}->{'soap:Body'}->{'n:updateBetsResponse'}->{'n:Result'}->{'betResults'}->{'n2:UpdateBetsResult'});
+    if ($self->_doRequest('updateBets', 1, $params)) {
+        my $response = $self->_forceArray($self->{response}->{'soap:Body'}->{'n:updateBetsResponse'}->{'n:Result'}->{'betResults'}->{'n2:UpdateBetsResult'});
         foreach (@{$response}) {
             push @{$updated_bets}, {
                 success         => $_->{'success'}->{'content'},
@@ -1019,9 +1079,11 @@ Example
                                             billingName => 'The Sillymoose',
                                             nickName    => 'democard',
                                             password    => 'password123',
-                                            address1    => 'Mountain Plains',
+                                            address1    => 'Tasty bush',
+                                            address2    => 'Mountain Plains',
                                             town        => 'Hoofton',
                                             zipCode     => 'MO13FR',
+                                            county      => 'Mooshire',
                                             country     => 'UK',
                                  });
 
@@ -1029,8 +1091,29 @@ Example
 
 sub addPaymentCard {
     my ($self, $args) = @_;
-    if ($self->_do_request('addPaymentCard', 3, $args) ) {
-        return  $self->_add_payment_card_line([], $self->{response}->{'soap:Body'}->{'n:addPaymentCardResponse'}->{'n:Result'}->{'n2:PaymentCard'});
+    my $checkParams = {
+        cardNumber  => ['int', 1],
+        cardType    => ['cardTypeEnum', 1],
+        cardStatus  => ['cardStatusEnum', 1],
+        startDate   => ['cardDate', 1],
+        expiryDate  => ['cardDate', 1],
+        issueNumber => ['int', 1],
+        billingName => ['string', 1],
+        nickName    => ['string9', 1],
+        password    => ['password', 1],
+        address1    => ['string', 1],
+        address2    => ['string', 1],
+        address3    => ['string', 0],
+        address4    => ['string', 0],
+        town        => ['string', 1],
+        zipCode     => ['string', 1],
+        county      => ['string', 1],
+        country     => ['string', 1],
+
+    };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    if ($self->_doRequest('addPaymentCard', 3, $args) ) {
+        return  $self->_addPaymentCardLine([], $self->{response}->{'soap:Body'}->{'n:addPaymentCardResponse'}->{'n:Result'}->{'n2:PaymentCard'});
     }
     return 0;
 }
@@ -1061,7 +1144,7 @@ password : string of the betfair account password
 
 Example
 
-    # deposit £10 in my account
+    # deposit 10 in my account
     my $depositResponse = $betfair->depositFromPaymentCard({
                                             amount          => 10,
                                             cardIdentifier  => 'checking',
@@ -1073,8 +1156,14 @@ Example
 
 sub depositFromPaymentCard {
     my ($self, $args) = @_;
-
-    if ($self->_do_request('depositFromPaymentCard', 3, $args)) {
+    my $checkParams = {
+         amount         => ['decimal', 1],
+         cardIdentifier => ['string9', 1],
+         cv2            => ['cv2', 1],
+         password       => ['password', 1],
+    };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    if ($self->_doRequest('depositFromPaymentCard', 3, $args)) {
         my $deposit_response = $self->{response}->{'soap:Body'}->{'n:depositFromPaymentCardResponse'}->{'n:Result'};
         return  {
             fee                 => $deposit_response->{'fee'}->{'content'},
@@ -1101,7 +1190,7 @@ Example
 
 sub getAccountFunds {
     my ($self) = @_;
-    if ($self->_do_request('getAccountFunds', 1, {})) {
+    if ($self->_doRequest('getAccountFunds', 1, {})) {
         return {
             availBalance => $self->{response}->{'soap:Body'}->{'n:getAccountFundsResponse'}->{'n:Result'}->{'availBalance'}->{'content'},
             balance => $self->{response}->{'soap:Body'}->{'n:getAccountFundsResponse'}->{'n:Result'}->{'balance'}->{'content'},
@@ -1155,12 +1244,19 @@ Example
 
 sub getAccountStatement {
     my ($self, $args) = @_; 
-
-    my $account_statement;
-    if ($self->_do_request('getAccountStatement', 1, $args)) {
+    my $checkParams = {
+        startRecord     => ['int', 1],
+        recordCount     => ['int', 1],
+        startDate       => ['date', 1],         
+        endDate         => ['date', 1],         
+        itemsIncluded   => ['accountStatementIncludeEnum', 1],
+    };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    my $account_statement = [];
+    if ($self->_doRequest('getAccountStatement', 1, $args)) {
         my $response = 
-            $self->_force_array($self->{response}->{'soap:Body'}->{'n:getAccountStatementResponse'}->{'n:Result'}->{'items'}->{'n2:AccountStatementItem'});
-        foreach (@{$response} ) {
+            $self->_forceArray($self->{response}->{'soap:Body'}->{'n:getAccountStatementResponse'}->{'n:Result'}->{'items'}->{'n2:AccountStatementItem'});
+        foreach (@{$response}) {
             $account_statement = _add_statement_line($account_statement, $_);
         }
         return $account_statement;
@@ -1210,11 +1306,11 @@ Example
 sub getPaymentCard {
     my ($self, $args) = @_;
     my $payment_cards = [];
-    if ($self->_do_request('getPaymentCard', 3, $args) ) {
-        my $response = $self->_force_array(
+    if ($self->_doRequest('getPaymentCard', 3, $args) ) {
+        my $response = $self->_forceArray(
                 $self->{response}->{'soap:Body'}->{'n:getPaymentCardResponse'}->{'n:Result'}->{'paymentCardItems'}->{'n2:PaymentCard'});
         foreach (@{$response}) {
-            $payment_cards = $self->_add_payment_card_line($payment_cards, $_);
+            $payment_cards = $self->_addPaymentCardLine($payment_cards, $_);
         }
         return $payment_cards;
     }
@@ -1234,7 +1330,7 @@ Example
 
 sub getSubscriptionInfo {
     my ($self, $args) = @_;
-    if ($self->_do_request('getSubscriptionInfo', 3, $args) ) {
+    if ($self->_doRequest('getSubscriptionInfo', 3, $args) ) {
         my $response = $self->{response}->{'soap:Body'}->{'n:getSubscriptionInfoResponse'}->{'n:Result'};
         return {
             minor_error_code    => $response->{'minorErrorCode'}->{'content'},
@@ -1285,7 +1381,13 @@ Example
 
 sub withdrawToPaymentCard {
     my ($self, $args) = @_; 
-    if ($self->_do_request('withdrawToPaymentCard', 3, $args) ) {
+    my $checkParams = {
+        amount          => ['decimal', 1],
+        cardIdentifier  => ['string9', 1],
+        password        => ['password', 1],
+    };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    if ($self->_doRequest('withdrawToPaymentCard', 3, $args) ) {
         my $response = $self->{response}->{'soap:Body'}->{'n:withdrawToPaymentCardResponse'}->{'n:Result'};
         return {
             amount_withdrawn   => $response->{'amountWithdrawn'}->{'content'},
@@ -1297,57 +1399,19 @@ sub withdrawToPaymentCard {
     return 0;
 }
 
-=head1 HELPER METHODS
-
-=head2 getMarketPricesCombined
-
-This is a helper method not provided by the betfair API. It returns a combined structure of the results of getMarket and getCompleteMarketPrices so that detailed runner and market information is combined with the complete betfair price data. Requires:
-
-=over
-
-=item *
-
-marketId : integer of the betfair market id
-
-=back
-
-Example
-
-    # call getMarket and getCompleteMarketPrices and combine them into a single structure
-    my $completeMarketData = $betfair->getMarketPricesCombined({marketId => 123456789});
-
-=cut
-
-sub getMarketPricesCombined {
-    my ($self, $args) = @_;
-    my $marketPrices = $self->getCompleteMarketPrices($args);
-    my $market = $self->getMarket($args);
-
-    my $selectionHash;
-    foreach (@{$market->{'runners'} } ) {
-        $selectionHash->{ $_->{'selectionId'} } = $_->{'name'};
-    }
-    foreach (@{$marketPrices->{'runners'} } ) {
-        $_->{'name'} = $selectionHash->{ $_->{'bf_id'}};
-    }
-    #Now runner names have been mapped to market prices runners, delete them and add remaining market data into market prices
-    delete $market->{'runners'};
-    foreach (keys %{$market}){
-        $marketPrices->{ $_ } = $market->{ $_ };
-    }
-    return $marketPrices;
-}
-
 =head1 INTERNAL METHODS
 
-=head2 _do_request
+=head2 _doRequest
 
 Processes requests to and from the betfair API.
 
 =cut
 
-sub _do_request {
+sub _doRequest {
     my ($self, $action, $server, $params) = @_;
+
+    # clear data from previous request
+    $self->_clearData;
   
     # add header to $params
     $params->{header}->{sessionToken} = $self->{sessionToken} if defined $self->{sessionToken}; 
@@ -1398,13 +1462,13 @@ sub _getServerURI {
 }
 
 
-=head2 _sort_array_ref
+=head2 _sortArrayRef
 
 Returns a sorted arrayref based on price.
 
 =cut
 
-sub _sort_array_ref {
+sub _sortArrayRef {
     my $array_ref = shift;
     if (ref($array_ref) eq 'ARRAY'){
        return sort { $b->{price} <=> $a->{price} } @$array_ref;
@@ -1412,13 +1476,13 @@ sub _sort_array_ref {
     return $array_ref;
 }
 
-=head2 _add_payment_card_line
+=head2 _addPaymentCardLine
 
 Pushes a hashref of payment card key / value pairs into an arrayref and returns the result.
 
 =cut
 
-sub _add_payment_card_line {
+sub _addPaymentCardLine {
     my ($self, $payment_card, $line_to_be_added) = @_;
     push(@{$payment_card}, {
         country_code_iso3       => $line_to_be_added->{'billingCountryIso3'}->{'content'},
@@ -1445,15 +1509,79 @@ sub _add_payment_card_line {
     return $payment_card;
 }
 
-=head2 _force_array
+=head2 _forceArray
 
 Receives a reference variable and if the data is not an array, returns a single-element arrayref. Else returns the data as received.
 
 =cut
 
-sub _force_array {
+sub _forceArray {
     my ($self, $data) = @_;
     return ref($data) eq 'ARRAY' ? $data : [$data];
+}
+
+=head2 _checkParams
+
+Receives an hashref of parameter types and a hashref of arguments. Checks that all mandatory arguments are present using _checkParam and that no additional parameters exist in the hashref. 
+
+=cut
+
+sub _checkParams {
+    my ($self, $paramChecks, $args) = @_;
+
+    # check no rogue arguments have been included in parameters
+    foreach my $paramName (keys %{$args}) {
+        if (not exists $paramChecks->{$paramName}) {
+            $self->{headerError} = "Error: unexpected parameter $paramName is not a correct argument for the method called.";
+            return 0;
+        }
+        # if exists now check that the type is correct
+        else {
+            return 0 unless $self->_checkParam( $paramChecks->{$paramName}->[0],
+                                                $args->{$paramName});
+        }
+    }
+    # check all mandatory parameters are present 
+    foreach my $paramName (keys %{$paramChecks}){
+        if ($paramChecks->{$paramName}->[1]){
+            unless (exists $args->{$paramName}) {
+                $self->{headerError} = "Error: missing mandatory parameter $paramName.";
+                return 0;
+            }
+        }
+    }
+    return 1;
+}
+
+=head2 _checkParam
+
+Checks the parameter using the TypeCheck.pm object, returns 1 on success and 0 on failure.
+
+=cut
+
+sub _checkParam {
+    my ($self, $type, $value) = @_;
+    unless($self->{type}->checkParameter($type, $value)) {
+        $self->{headerError} = "Error: message not sent as parameter $value failed the type requirements check for $type. Check the documentation at the command line: perldoc WWW::betfair::TypeCheck";
+        return 0;
+    }
+    return 1;
+}
+
+=head2 _clearData
+
+Sets all message related object attributes to null - this is so that the error message from the previous API call is not mis-read as relevant to the current call.
+
+=cut
+
+sub _clearData {
+    my $self = shift;
+    $self->{xmlsent}        = undef;
+    $self->{xmlreceived}    = undef;
+    $self->{headerError}    = undef;
+    $self->{bodyError}      = undef;
+    $self->{response}       = {};
+    return 1;
 }
 
 
