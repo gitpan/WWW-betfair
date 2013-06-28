@@ -1,4 +1,7 @@
 Revision history for WWW-betfair
+0.04    27 June 2013
+        Corrected MANIFEST to include TypeCheck.pm.
+
 0.03    24 June 2013
         Added TypeCheck.pm and basic parameter checking to API methods. Minor corrections to documentation.
 

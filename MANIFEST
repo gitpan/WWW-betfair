@@ -9,5 +9,6 @@ t/pod-coverage.t
 t/pod.t
 lib/WWW/betfair/Template.pm
 lib/WWW/betfair/Request.pm
+lib/WWW/betfair/TypeCheck.pm
 META.yml                                 Module YAML meta-data (added by MakeMaker)
 META.json                                Module JSON meta-data (added by MakeMaker)
