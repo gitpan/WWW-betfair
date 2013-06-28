@@ -1,4 +1,7 @@
 Revision history for WWW-betfair
+0.05    27 June 2013
+        Corrected MANIFEST to include TypeCheck.t and betfair.t
+
 0.04    27 June 2013
         Corrected MANIFEST to include TypeCheck.pm.
 
