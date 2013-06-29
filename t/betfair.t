@@ -23,7 +23,7 @@ SKIP: {
     print 'WWW::betfair needs to connect to the betfair API to fully test the library is working. The tests are all read-only betfair services and will not affect your betfair account. This will require your betfair username and password to start a session with betfair and an active internet connection. Would you like to run these tests? [y/n] ';
 
     chomp (my $response = <STDIN>);
-    skip '- user decided not to run', 16 unless lc $response eq 'y';
+    skip '- user decided not to run', 18 unless lc $response eq 'y';
     print 'Please enter your betfair username: ';
     chomp( my $username = <STDIN>);
     print 'Please enter your betfair password: ';
@@ -36,7 +36,7 @@ SKIP: {
                                    password => $cipher->decrypt($ciphertext),
                             });
     ok($loginResult, 'login');
-    skip 'as login failed -' . $b->getError, 15 unless $loginResult;
+    skip 'as login failed -' . $b->getError, 17 unless $loginResult;
     ok($b->getError, 'getError');
     ok($b->getHashReceived, 'getHashReceived');
     ok($b->getXMLReceived, 'getXMLReceived');
@@ -50,6 +50,8 @@ SKIP: {
     ok($b->getPaymentCard, 'getPaymentCard');
     ok($b->getSubscriptionInfo, 'getSubscriptionInfo');
     ok($b->getAccountFunds, 'getAccountFunds');
+    ok($b->getAllCurrencies, 'getAllCurrencies');
+    ok($b->getAllCurrenciesV2, 'getAllCurrenciesV2');
     ok($b->getCurrentBets({
                             betStatus           => "C",
                             detailed            => "false",
@@ -58,7 +60,6 @@ SKIP: {
                             startRecord         => "0",
                             noTotalRecordCount  => "true",
                             }), 'getCurrentBets');
-
     ok($b->logout, 'logout');
 }
 

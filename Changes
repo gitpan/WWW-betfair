@@ -1,4 +1,8 @@
 Revision history for WWW-betfair
+
+0.06    28 June 2013
+        Added new currency methods, updated getCurrentBets method. Added v5.10.1 requirement to Makefile.
+
 0.05    27 June 2013
         Corrected MANIFEST to include TypeCheck.t and betfair.t
 

@@ -15,11 +15,11 @@ WWW::betfair - interact with the betfair API using OO Perl
 
 =head1 VERSION
 
-Version 0.05
+Version 0.06
 
 =cut
 
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 
 
 =head1 WARNING
@@ -77,9 +77,13 @@ Enable use of Australian exchange server - currently this is not supported
 
 Add remaining L<betfair API methods|http://bdp.betfair.com/docs/>
 
+=item *
+
+Add encryption to object attributes.
+
 =back
 
-=head1 METHODS
+=head1 NON API METHODS
 
 =head2 new
 
@@ -152,7 +156,7 @@ sub getHashReceived {
     return $self->{response};
 }
 
-=head1 GENERAL API SERVICES METHODS
+=head1 GENERAL API METHODS
 
 =head2 login
 
@@ -239,7 +243,52 @@ sub logout {
     return 0;
 }
 
-=head1 READ ONLY BETTING API SERVICES
+=head1 READ ONLY BETTING API METHODS
+
+=head2 convertCurrency
+
+Returns the betfair converted amount of currency see L<convertCurrency|http://bdp.betfair.com/docs/ConvertCurrency.html> for details. Requires a hashref with the following parameters:
+
+=over
+
+=item *
+
+amount - this is the decimal amount of base currency to convert.
+
+=item *
+
+fromCurrency - this is the base currency to convert from.
+
+=item *
+
+toCurrency - this is the target currency to convert to.
+
+=back
+
+Example
+
+    $betfair->convertCurrency({ amount          => 5,
+                                fromCurrency    => 'GBP',
+                                toCurrency      => 'USD',
+                              });
+
+=cut
+
+sub convertCurrency {
+    my ($self, $args) = @_;
+    my $checkParams = {
+        amount              => ['decimal', 1],
+        fromCurrency        => ['string', 1],
+        toCurrency          => ['string', 1],
+    };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    if ($self->_doRequest('convertCurrency', 3, $args) ) {
+        return { convertedAmount =>
+                $self->{response}->{'soap:Body'}->{'n:convertCurrencyResponse'}->{'n:Result'}->{'convertedAmount'}->{'content'}
+        };
+    }
+    return 0;
+}
 
 =head2 getActiveEventTypes
 
@@ -264,6 +313,59 @@ sub getActiveEventTypes {
             });
         }
         return $active_event_types;
+    }
+    return 0;
+}
+
+=head2 getAllCurrencies
+
+Returns an arrayref of currency codes and the betfair GBP exchange rate. See L<getAllCurrencies|http://bdp.betfair.com/docs/GetAllCurrencies.html>. Requires no parameters.
+
+Example
+
+    $betfair->getAllCurrencies;
+
+=cut
+
+sub getAllCurrencies {
+    my $self = shift;
+    my $currencies =[];
+    if ($self->_doRequest('getAllCurrencies', 3, {}) ) {
+        foreach (@{$self->{response}->{'soap:Body'}->{'n:getAllCurrenciesResponse'}->{'n:Result'}->{'currencyItems'}->{'n2:Currency'}}) {
+            push(@{$currencies},{
+                currencyCode    => $_->{'currencyCode'}->{'content'},
+                rateGBP         => $_->{'rateGBP'}->{'content'},
+            });
+        }
+        return $currencies;
+    }
+    return 0;
+}
+
+=head2 getAllCurrenciesV2
+
+Returns an arrayref of currency codes, the betfair GBP exchange rate and staking sizes for the currency. See L<getAllCurrenciesV2|http://bdp.betfair.com/docs/GetAllCurrenciesV2.html>. Requires no parameters.
+
+Example
+
+    $betfair->getAllCurrenciesV2;
+
+=cut
+
+sub getAllCurrenciesV2 {
+    my $self = shift;
+    my $currenciesV2 =[];
+    if ($self->_doRequest('getAllCurrenciesV2', 3, {}) ) {
+        foreach (@{$self->{response}->{'soap:Body'}->{'n:getAllCurrenciesV2Response'}->{'n:Result'}->{'currencyItems'}->{'n2:CurrencyV2'}}) {
+            push(@{$currenciesV2},{
+                currencyCode            => $_->{'currencyCode'}->{'content'},
+                rateGBP                 => $_->{'rateGBP'}->{'content'},
+                minimumStake            => $_->{'minimumStake'}->{'content'},
+                minimumRangeStake       => $_->{'minimumRangeStake'}->{'content'},
+                minimumBSPLayLiability => $_->{'minimumBSPLayLiability'}->{'content'},
+            });
+        }
+        return $currenciesV2;
     }
     return 0;
 }
@@ -335,6 +437,79 @@ sub getAllMarkets {
     return 0; 
 }
 
+=head2 getBet
+
+Returns a hashref of betfair's bet response, including an array of all matches to a bet. See L<getBet|http://bdp.betfair.com/docs/GetBet.html> for details. Requires a hashref with the following argument:
+
+=over
+
+=item *
+
+betId - the betId integer of the bet to retrieve data about.
+
+=back
+
+Example
+
+    my $bet = $betfair->getBet({betId => 123456789});
+
+=cut
+
+sub getBet {
+    my ($self, $args) = @_;
+    my $checkParams = { betId => ['int', 1] };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    if ($self->_doRequest('getBet', 1, $args)) {
+        my $response = $self->{response}->{'soap:Body'}->{'n:getBetResponse'}->{'n:Result'}->{bet};
+        my $bet = {
+            asianLineId     => $response->{asianLineId}->{content},
+            avgPrice        => $response->{avgPrice}->{content},
+            betCategoryType => $response->{betCategoryType}->{content},
+            betId           => $response->{betId}->{content},
+            betPersistenceType  => $response->{betPersistenceType}->{content},
+            betStatus           => $response->{betStatus}->{content},
+            betType             => $response->{betType}->{content},
+            bspLiability        => $response->{bspLiability}->{content},
+            cancelledDate       => $response->{cancelledDate}->{content},
+            executedBy          => $response->{executedBy}->{content},
+            fullMarketName      => $response->{fullMarketName}->{content},
+            handicap            => $response->{handicap}->{content},
+            lapsedDate          => $response->{lapsedDate}->{content},
+            marketId            => $response->{marketId}->{content},
+            marketName          => $response->{marketName}->{content},
+            marketType          => $response->{marketType}->{content},
+            marketTypeVariant   => $response->{marketTypeVariant}->{content},
+            matchedDate         => $response->{matchedDate}->{content},
+            matchedSize         => $response->{matchedSize}->{content},
+            matches             => [],
+            placedDate          => $response->{placedDate}->{content},
+            price               => $response->{price}->{content},
+            profitAndLoss       => $response->{profitAndLoss}->{content},
+            remainingSize       => $response->{remainingSize}->{content},
+            requestedSize       => $response->{requestedSize}->{content},
+            selectionId         => $response->{selectionId}->{content},
+            selectionName       => $response->{selectionName}->{content},
+            settledDate         => $response->{settledDate}->{content},
+            voidedDate          => $response->{voidedDate}->{content},
+        };
+        my $matches = $self->_forceArray($response->{matches}->{'n2:Match'});
+        foreach my $match (@{$matches}){
+            push @{$bet->{matches}}, {
+                betStatus       => $match->{betStatus}->{content},
+                matchedDate     => $match->{matchedDate}->{content},
+                priceMatched    => $match->{priceMatched}->{content},
+                profitLoss      => $match->{profitLoss}->{content},
+                settledDate     => $match->{settledDate}->{content},
+                sizeMatched     => $match->{sizeMatched}->{content},
+                transactionId   => $match->{transactionId}->{content},
+                voidedDate      => $match->{voidedDate}->{content},
+            };
+        }
+        return $bet;
+    } 
+    return 0;
+}
+
 =head2 getCurrentBets
 
 Returns an array of hashrefs of current bets or 0 on failure. See L<http://bdp.betfair.com/docs/GetCurrentBets.html> for details. Requires a hashref with the following parameters:
@@ -400,30 +575,52 @@ sub getCurrentBets {
         my $response = $self->_forceArray(
                 $self->{response}->{'soap:Body'}->{'n:getCurrentBetsResponse'}->{'n:Result'}->{'bets'}->{'n2:Bet'});
         my $current_bets = [];
-        foreach (@{$response} ) {
-            push(@$current_bets, {
-                market_id           => $_->{'marketId'}->{'content'},
-                bet_type            => $_->{'betType'}->{'content'},
-                placed_date         => $_->{'placedDate'}->{'content'},
-                bet_id              => $_->{'betId'}->{'content'},
-                market_name         => $_->{'marketName'}->{'content'},
-                profit_loss         => $_->{'profitAndLoss'}->{'content'},
-                voided_date         => $_->{'voidedDate'}->{'content'},
-                bet_status          => $_->{'betStatus'}->{'content'},
-                bet_category_type   => $_->{'betCategoryType'}->{'content'},
-                cancelled_date      => $_->{'cancelledDate'}->{'content'},
-                matches             => $_->{'matches'}->{'content'},
-                selection_name      => $_->{'selectionName'}->{'content'},
-                selection_id        => $_->{'selectionId'}->{'content'},
-                matched_size        => $_->{'matchedSize'}->{'content'},
-                settled_date        => $_->{'settledDate'}->{'content'},
-                avg_price           => $_->{'avgPrice'}->{'content'},
-                price               => $_->{'price'}->{'content'},
-                market_type_variant => $_->{'marketTypeVariant'}->{'content'},
-                requested_size      => $_->{'requestedSize'}->{'content'},
-                remaining_size      => $_->{'remainingSize'}->{'content'}
-                });
+        foreach (@{$response}) {
+            my $bet = {
+                asianLineId         => $_->{asianLineId}->{content},
+                avgPrice            => $_->{avgPrice}->{content},
+                betCategoryType     => $_->{betCategoryType}->{content},
+                betId               => $_->{betId}->{content},
+                betPersistenceType  => $_->{betPersistenceType}->{content},
+                betStatus           => $_->{betStatus}->{content},
+                betType             => $_->{betType}->{content},
+                bspLiability        => $_->{bspLiability}->{content},
+                cancelledDate       => $_->{cancelledDate}->{content},
+                fullMarketName      => $_->{fullMarketName}->{content},
+                handicap            => $_->{handicap}->{content},
+                lapsedDate          => $_->{lapsedDate}->{content},
+                marketId            => $_->{marketId}->{content},
+                marketName          => $_->{marketName}->{content},
+                marketType          => $_->{marketType}->{content},
+                marketTypeVariant   => $_->{marketTypeVariant}->{content},
+                matchedDate         => $_->{matchedDate}->{content},
+                matchedSize         => $_->{matchedSize}->{content},
+                matches             => [],
+                placedDate          => $_->{placedDate}->{content},
+                price               => $_->{price}->{content},
+                profitAndLoss       => $_->{profitAndLoss}->{content},
+                remainingSize       => $_->{remainingSize}->{content},
+                requestedSize       => $_->{requestedSize}->{content},
+                selectionId         => $_->{selectionId}->{content},
+                selectionName       => $_->{selectionName}->{content},
+                settledDate         => $_->{settledDate}->{content},
+                voidedDate          => $_->{voidedDate}->{content},
+            };
+            my $matches = $self->_forceArray($_->{matches}->{'n2:Match'});
+            foreach my $match (@{$matches}){
+                push @{$bet->{matches}}, {
+                    betStatus       => $match->{betStatus}->{content},
+                    matchedDate     => $match->{matchedDate}->{content},
+                    priceMatched    => $match->{priceMatched}->{content},
+                    profitLoss      => $match->{profitLoss}->{content},
+                    settledDate     => $match->{settledDate}->{content},
+                    sizeMatched     => $match->{sizeMatched}->{content},
+                    transactionId   => $match->{transactionId}->{content},
+                    voidedDate      => $match->{voidedDate}->{content},
+                };
             }
+            push @{$current_bets}, $bet;
+        }
         return $current_bets;
     }
     return 0;
@@ -988,7 +1185,7 @@ sub updateBets {
 }
 
 
-=head1 ACCOUNT MANAGEMENT API SERVICES
+=head1 ACCOUNT MANAGEMENT API METHODS
 
 =head2 addPaymentCard
 

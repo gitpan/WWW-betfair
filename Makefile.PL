@@ -1,4 +1,4 @@
-use 5.006;
+use 5.10.1;
 use strict;
 use warnings FATAL => 'all';
 use ExtUtils::MakeMaker;
