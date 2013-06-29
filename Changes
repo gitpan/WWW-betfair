@@ -1,5 +1,8 @@
 Revision history for WWW-betfair
 
+0.07    28 June 2013
+        Re-uploaded to CPAN, no changes.
+
 0.06    28 June 2013
         Added new currency methods, updated getCurrentBets method. Added v5.10.1 requirement to Makefile.
 
