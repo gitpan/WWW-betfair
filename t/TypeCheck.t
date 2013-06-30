@@ -47,6 +47,9 @@ ok($tc->checkMarketStatusEnum('SUSPENDED'), 'checkMarketStatusEnum');
 ok($tc->checkMarketStatusEnum('ACTIVE'), 'checkMarketStatusEnum');
 ok($tc->checkMarketTypeEnum('O'), 'checkMarketTypeEnum');
 ok(!$tc->checkMarketTypeEnum, 'checkMarketTypeEnum');
+ok($tc->checkArrayMarketTypeEnum(['O', 'NOT_APPLICABLE','L', 'A', 'R']), 'checkArrayMarketTypeEnum');
+ok(!$tc->checkArrayMarketTypeEnum([]), 'checkMarketTypeEnum null array');
+ok(!$tc->checkArrayMarketTypeEnum(['G']), 'checkMarketTypeEnum - G');
 ok($tc->checkMarketTypeVariantEnum('D'), 'checkMarketTypeVariantEnum');
 ok(!$tc->checkMarketTypeVariantEnum('AFL'), 'checkMarketTypeVariantEnum');
 ok($tc->checkPaymentCardStatusEnum('UNLOCKED'), 'checkPaymentCardStatusEnum');
@@ -114,6 +117,9 @@ ok($tc->checkInt('90578'), 'checkInt 90578');
 ok(!$tc->checkInt, 'checkInt null');
 ok(!$tc->checkInt(1.1), 'checkInt decimal');
 ok(!$tc->checkInt('A 1 hey'), 'checkInt string');
+ok($tc->checkArrayInt([1, -3, 4, 193000]), 'checkArrayInt');
+ok(!$tc->checkArrayInt([]), 'checkArrayInt null');
+ok(!$tc->checkArrayInt(['a', 'ab', 1]), 'checkArrayInt string');
 
 # datetime
 ok($tc->checkDate('2013-01-18T12:30:58Z'), 'checkDate standard');

@@ -15,11 +15,11 @@ WWW::betfair - interact with the betfair API using OO Perl
 
 =head1 VERSION
 
-Version 0.07
+Version 0.08
 
 =cut
 
-our $VERSION = '0.07';
+our $VERSION = '0.08';
 
 
 =head1 WARNING
@@ -510,9 +510,162 @@ sub getBet {
     return 0;
 }
 
+=head2 getBetHistory
+
+Returns an arrayref of hashrefs of bets. See L<getBetHistory|http://bdp.betfair.com/docs/GetBetHistory.html> for details. Requires a hashref with the following parameters:
+
+=over
+
+=item *
+
+betTypesIncluded : string of a valid BetStatusEnum type as defined by betfair (see L<betStatusEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1028849i1028849>)
+
+=item *
+
+detailed : boolean string e.g. ('true' or 'false') indicating whether or not to include the details of all matches per bet.
+
+=item *
+
+eventTypeIds : an arrayref of integers that represent the betfair eventTypeIds. (e.g. [1, 6] would be football and boxing). This is not mandatory if the betTypesIncluded parameter equals 'M' or 'U'.
+
+=item *
+
+marketId : an integer representing the betfair marketId (optional).
+
+=item *
+
+marketTypesIncluded : arrayref of strings of the betfair marketTypesIncluded enum. See L<marketTypesIncludedEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1020360i1020360> for details.
+
+=item *
+
+placedDateFrom : string date for which to return records on or after this date (a string in the XML datetime format see example).
+
+=item *
+
+placedDateTo : string date for which to return records on or before this date (a string in the XML datetime format see example).
+
+=item *
+
+recordCount : integer representing the maximum number of records to retrieve (must be between 1 and 100).
+
+=item *
+
+sortBetsBy : string of a valid BetsOrderByEnum types as defined by betfair. see L<BetsOrderByEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1033170i1033170>
+
+=item *
+
+startRecord : integer of the index of the first record to retrieve. The index is zero-based so 0 would indicate the first record in the resultset
+
+=back
+
+Example
+
+    my $betHistory = $betfair->getBetHistory({
+                            betTypesIncluded    => 'M',
+                            detailed            => 'false',
+                            eventTypeIds        => [6],
+                            marketTypesIncluded => ['O', 'L', 'R'],
+                            placedDateFrom      => '2013-01-01T00:00:00.000Z',         
+                            placedDateTo        => '2013-06-16T00:00:00.000Z',         
+                            recordCount         => 100,
+                            sortBetsBy          => 'PLACED_DATE',
+                            startRecord         => 0,
+                            });
+=cut
+
+sub getBetHistory {
+    my ($self, $args) = @_;
+    my $checkParams = {
+        betTypesIncluded    => ['betStatusEnum', 1],
+        detailed            => ['boolean', 1],
+        eventTypeIds        => ['arrayInt', 1],
+        sortBetsBy          => ['betsOrderByEnum', 1],
+        recordCount         => ['int', 1,],
+        startRecord         => ['int', 1],
+        placedDateTo        => ['date', 1],
+        placedDateFrom      => ['date', 1],
+        marketTypesIncluded => ['arrayMarketTypeEnum', 1],
+        marketId            => ['int',0],
+    };
+    # eventTypeIds is not mandatory if betTypesIncluded is 'M' or 'U'
+    $checkParams->{eventTypeIds}->[1] = 0 if grep{/$args->{betTypesIncluded}/} qw/M U/;
+
+    # marketId is mandatory if betTypesIncluded is 'S', 'C', or 'V'
+    $checkParams->{marketId}->[1] = 1 if grep{/$args->betTypesIncluded/} qw/S C V/;
+    
+    return 0 unless $self->_checkParams($checkParams, $args);
+
+    # make eventTypeIds an array of int
+    my @eventTypeIds = $args->{eventTypeIds};
+    delete $args->{eventTypeIds};
+    $args->{eventTypeIds}->{'int'} = \@eventTypeIds;
+
+    # make marketTypesIncluded an array of marketTypeEnum
+    my @marketTypes = $args->{marketTypesIncluded};
+    delete $args->{marketTypesIncluded};
+    $args->{marketTypesIncluded}->{'MarketTypeEnum'} = \@marketTypes;
+
+    if ($self->_doRequest('getBetHistory', 1, $args) ) {
+        my $response = $self->_forceArray(
+                $self->{response}->{'soap:Body'}->{'n:getBetHistoryResponse'}->{'n:Result'}->{'bets'}->{'n2:Bet'});
+        my $betHistory = [];
+        foreach (@{$response}) {
+            my $bet = {
+                asianLineId         => $_->{asianLineId}->{content},
+                avgPrice            => $_->{avgPrice}->{content},
+                betCategoryType     => $_->{betCategoryType}->{content},
+                betId               => $_->{betId}->{content},
+                betPersistenceType  => $_->{betPersistenceType}->{content},
+                betStatus           => $_->{betStatus}->{content},
+                betType             => $_->{betType}->{content},
+                bspLiability        => $_->{bspLiability}->{content},
+                cancelledDate       => $_->{cancelledDate}->{content},
+                fullMarketName      => $_->{fullMarketName}->{content},
+                handicap            => $_->{handicap}->{content},
+                lapsedDate          => $_->{lapsedDate}->{content},
+                marketId            => $_->{marketId}->{content},
+                marketName          => $_->{marketName}->{content},
+                marketType          => $_->{marketType}->{content},
+                marketTypeVariant   => $_->{marketTypeVariant}->{content},
+                matchedDate         => $_->{matchedDate}->{content},
+                matchedSize         => $_->{matchedSize}->{content},
+                matches             => [],
+                placedDate          => $_->{placedDate}->{content},
+                price               => $_->{price}->{content},
+                profitAndLoss       => $_->{profitAndLoss}->{content},
+                remainingSize       => $_->{remainingSize}->{content},
+                requestedSize       => $_->{requestedSize}->{content},
+                selectionId         => $_->{selectionId}->{content},
+                selectionName       => $_->{selectionName}->{content},
+                settledDate         => $_->{settledDate}->{content},
+                voidedDate          => $_->{voidedDate}->{content},
+            };
+            my $matches = $self->_forceArray($_->{matches}->{'n2:Match'});
+            foreach my $match (@{$matches}){
+                push @{$bet->{matches}}, {
+                    betStatus       => $match->{betStatus}->{content},
+                    matchedDate     => $match->{matchedDate}->{content},
+                    priceMatched    => $match->{priceMatched}->{content},
+                    profitLoss      => $match->{profitLoss}->{content},
+                    settledDate     => $match->{settledDate}->{content},
+                    sizeMatched     => $match->{sizeMatched}->{content},
+                    transactionId   => $match->{transactionId}->{content},
+                    voidedDate      => $match->{voidedDate}->{content},
+                };
+            }
+            push @{$betHistory}, $bet;
+        }
+        return $betHistory;
+    }
+    return 0;
+}
+
+
+
+
 =head2 getCurrentBets
 
-Returns an array of hashrefs of current bets or 0 on failure. See L<http://bdp.betfair.com/docs/GetCurrentBets.html> for details. Requires a hashref with the following parameters:
+Returns an arrayref of hashrefs of current bets or 0 on failure. See L<http://bdp.betfair.com/docs/GetCurrentBets.html> for details. Requires a hashref with the following parameters:
 
 =over
 
@@ -834,7 +987,7 @@ betStatus : string of betfair betStatusEnum type, must be either matched, unmatc
 
 =item *
 
-orderBy : string of a valid BetsOrderByEnum types as defined by betfair. see L<http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>
+orderBy : string of a valid BetsOrderByEnum types as defined by betfair. see L<BetsOrderByEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1033170i1033170>
 
 =item *
 

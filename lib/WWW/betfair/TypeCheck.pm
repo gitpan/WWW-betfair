@@ -5,7 +5,7 @@ use Regexp::Common;
 
 =head1 DESCRIPTION
 
-Provides type checking for parameters passed to the betfair API. Includes betfair's enumerated types.
+Used by L<WWW::betfair> to provide type checking for parameters passed to the betfair API. Includes betfair's enumerated types.
 
 =head2 new
 
@@ -26,6 +26,7 @@ sub new {
                         username                    => \&checkUsername,
                         password                    => \&checkPassword,
                         boolean                     => \&checkBoolean,
+                        arrayInt                    => \&checkArrayInt,
                         accountStatementEnum        => \&checkAccountStatementEnum,
                         accountStatementIncludeEnum => \&checkAccountStatementIncludeEnum,
                         accountStatusEnum           => \&checkAccountStatusEnum,
@@ -41,6 +42,7 @@ sub new {
                         genderEnum                  => \&checkGenderEnum,
                         marketStatusEnum            => \&checkMarketStatusEnum,
                         marketTypeEnum              => \&checkMarketTypeEnum,
+                        arrayMarketTypeEnum         => \&checkArrayMarketTypeEnum,
                         marketTypeVariantEnum       => \&checkMarketTypeVariantEnum,
                         paymentCardStatusEnum       => \&checkPaymentCardStatusEnum,
                         regionEnum                  => \&checkRegionEnum,
@@ -73,7 +75,7 @@ sub checkParameter {
 
 =head2 checkAccountStatementEnum
 
-Checks submitted value is a valid betfair enumerated type, see the L<betfair documentation|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>.
+Checks submitted value is a valid betfair enumerated type, see L<accountStatementEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1028861i1028861> for details.
 
 =cut
 
@@ -86,7 +88,7 @@ sub checkAccountStatementEnum {
 
 =head2 checkAccountStatementIncludeEnum
 
-Checks submitted value is a valid betfair enumerated type, see the L<betfair documentation|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>.
+Checks submitted value is a valid betfair enumerated type, see L<accountStatementIncludeEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#d83e136> for details.
 
 =cut
 
@@ -99,7 +101,7 @@ sub checkAccountStatementIncludeEnum {
 
 =head2 checkAccountStatusEnum
 
-Checks submitted value is a valid betfair enumerated type, see the L<betfair documentation|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>.
+Checks submitted value is a valid betfair enumerated type, see L<accountStatusEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1028854i1028854>.
 
 =cut
 
@@ -112,7 +114,7 @@ sub checkAccountStatusEnum {
 
 =head2 checkAccountTypeEnum
 
-Checks submitted value is a valid betfair enumerated type, see the L<betfair documentation|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>.
+Checks submitted value is a valid betfair enumerated type, see L<accountTypeEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1033140i1033140> for details.
 
 =cut
 
@@ -125,7 +127,7 @@ sub checkAccountTypeEnum {
 
 =head2 checkBetCategoryTypeEnum
 
-Checks submitted value is a valid betfair enumerated type, see the L<betfair documentation|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>.
+Checks submitted value is a valid betfair enumerated type, see L<betCategoryTypeEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#d83e452> for details.
 
 =cut
 
@@ -138,7 +140,7 @@ sub checkBetCategoryTypeEnum {
 
 =head2 checkBetPersistenceTypeEnum
 
-Checks submitted value is a valid betfair enumerated type, see the L<betfair documentation|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>.
+Checks submitted value is a valid betfair enumerated type, see L<betPersistenceTypeEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#d83e531> for details.
 
 =cut
 
@@ -151,7 +153,7 @@ sub checkBetPersistenceTypeEnum {
 
 =head2 checkBetsOrderByEnum
 
-Checks submitted value is a valid betfair enumerated type, see the L<betfair documentation|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>.
+Checks submitted value is a valid betfair enumerated type, see L<betsOrderByEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1033170i1033170> for details.
 
 =cut
 
@@ -164,7 +166,7 @@ sub checkBetsOrderByEnum {
 
 =head2 checkBetStatusEnum
 
-Checks submitted value is a valid betfair enumerated type, see the L<betfair documentation|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>.
+Checks submitted value is a valid betfair enumerated type, see L<betStatusEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1028849i1028849> for details.
 
 =cut
 
@@ -177,7 +179,7 @@ sub checkBetStatusEnum {
 
 =head2 checkBetTypeEnum
 
-Checks submitted value is a valid betfair enumerated type, see the L<betfair documentation|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>.
+Checks submitted value is a valid betfair enumerated type, see L<betTypeEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1028850i1028850> for details.
 
 =cut
 
@@ -190,7 +192,7 @@ sub checkBetTypeEnum {
 
 =head2 checkBillingPeriodEnum
 
-Checks submitted value is a valid betfair enumerated type, see the L<betfair documentation|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>.
+Checks submitted value is a valid betfair enumerated type, see L<billingPeriodEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1028862i1028862> for details.
 
 =cut
 
@@ -203,7 +205,7 @@ sub checkBillingPeriodEnum {
 
 =head2 checkCardTypeEnum
 
-Checks submitted value is a valid betfair enumerated type, see the L<betfair documentation|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>.
+Checks submitted value is a valid betfair enumerated type, see L<cardTypeEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1028865i1028865> for details.
 
 =cut
 
@@ -216,7 +218,7 @@ sub checkCardTypeEnum {
 
 =head2 checkGamcareLimitFreqEnum
 
-Checks submitted value is a valid betfair enumerated type, see the L<betfair documentation|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>.
+Checks submitted value is a valid betfair enumerated type, see L<gamcareLimitFreqEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1028855i1028855> for details.
 
 =cut
 
@@ -229,7 +231,7 @@ sub checkGamcareLimitFreqEnum {
 
 =head2 checkGenderEnum
 
-Checks submitted value is a valid betfair enumerated type, see the L<betfair documentation|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>.
+Checks submitted value is a valid betfair enumerated type, see L<genderEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1028856i1028856> for details.
 
 =cut
 
@@ -242,7 +244,7 @@ sub checkGenderEnum {
 
 =head2 checkMarketStatusEnum
 
-Checks submitted value is a valid betfair enumerated type, see the L<betfair documentation|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>.
+Checks submitted value is a valid betfair enumerated type, see L<marketStatusEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1026626i1026626> for details.
 
 =cut
 
@@ -256,7 +258,7 @@ sub checkMarketStatusEnum {
 
 =head2 checkMarketTypeEnum
 
-Checks submitted value is a valid betfair enumerated type, see the L<betfair documentation|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>.
+Checks submitted value is a valid betfair enumerated type, see L<marketTypeEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1020360i1020360> for details.
 
 =cut
 
@@ -267,9 +269,25 @@ sub checkMarketTypeEnum {
     return 0; 
 }
 
+=head2 checkArrayMarketTypeEnum
+
+Checks the argument is a non-null arrayref containing only valid marketTypeEnum values.
+
+=cut
+
+sub checkArrayMarketTypeEnum {
+    my ($self, $arg) = @_;
+    return 0 unless @$arg;
+    return 0 unless ref $arg eq 'ARRAY';
+    foreach (@{$arg}) {
+        return 0 unless $self->checkMarketTypeEnum($_);
+    }
+    return 1; 
+}
+
 =head2 checkMarketTypeVariantEnum
 
-Checks submitted value is a valid betfair enumerated type, see the L<betfair documentation|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>.
+Checks submitted value is a valid betfair enumerated type, see L<marketTypeVariantEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1026240i1026240> for details.
 
 =cut
 
@@ -282,7 +300,7 @@ sub checkMarketTypeVariantEnum {
 
 =head2 checkPaymentCardStatusEnum
 
-Checks submitted value is a valid betfair enumerated type, see the L<betfair documentation|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>.
+Checks submitted value is a valid betfair enumerated type, see L<paymentCardStatusEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1028846i1028846>.
 
 =cut
 
@@ -295,7 +313,7 @@ sub checkPaymentCardStatusEnum {
 
 =head2 checkRegionEnum
 
-Checks submitted value is a valid betfair enumerated type, see the L<betfair documentation|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>.
+Checks submitted value is a valid betfair enumerated type, see L<regionEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1028859i1028859> for details.
 
 =cut
 
@@ -308,7 +326,7 @@ sub checkRegionEnum {
 
 =head2 checkSecurityQuestion1Enum
 
-Checks submitted value is a valid betfair enumerated type, see the L<betfair documentation|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>.
+Checks submitted value is a valid betfair enumerated type, see L<securityQuestion1Enum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1028857i1028857> for details.
 
 =cut
 
@@ -321,7 +339,7 @@ sub checkSecurityQuestion1Enum {
 
 =head2 checkSecurityQuestion2Enum
 
-Checks submitted value is a valid betfair enumerated type, see the L<betfair documentation|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>.
+Checks submitted value is a valid betfair enumerated type, see L<securityQuestion2Enum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1028858i1028858> for details.
 
 =cut
 
@@ -334,7 +352,7 @@ sub checkSecurityQuestion2Enum {
 
 =head2 checkServiceEnum
 
-Checks submitted value is a valid betfair enumerated type, see the L<betfair documentation|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>.
+Checks submitted value is a valid betfair enumerated type, see L<serviceEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1028864i1028864>.
 
 =cut
 
@@ -352,7 +370,7 @@ sub checkServiceEnum {
 
 =head2 checkSortOrderEnum
 
-Checks submitted value is a valid betfair enumerated type, see the L<betfair documentation|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>.
+Checks submitted value is a valid betfair enumerated type, see L<sortOrderEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1028852i1028852> for details.
 
 =cut
 
@@ -365,7 +383,7 @@ sub checkSortOrderEnum {
 
 =head2 checkSubscriptionStatusEnum
 
-Checks submitted value is a valid betfair enumerated type, see the L<betfair documentation|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>.
+Checks submitted value is a valid betfair enumerated type, see L<subscriptionStatusEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1028863i1028863> for details.
 
 =cut
 
@@ -378,7 +396,7 @@ sub checkSubscriptionStatusEnum {
 
 =head2 checkTitleEnum
 
-Checks submitted value is a valid betfair enumerated type, see the L<betfair documentation|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>.
+Checks submitted value is a valid betfair enumerated type, see L<titleEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1034208i1034208> for details.
 
 =cut
 
@@ -391,7 +409,7 @@ sub checkTitleEnum {
 
 =head2 checkValidationErrorsEnum
 
-Checks submitted value is a valid betfair enumerated type, see the L<betfair documentation|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>.
+Checks submitted value is a valid betfair enumerated type, see L<validationErrorsEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#d83e2449> for details.
 
 =cut
 
@@ -436,6 +454,22 @@ sub checkInt {
     return 0 unless defined $arg;
     return 1 if $arg =~ /^$RE{num}{int}$/;
     return 0;
+}
+
+=head2 checkArrayInt
+
+Checks that the argument is a non-null arrayref containing only integers as defined by the L<checkInt> method.
+
+=cut
+
+sub checkArrayInt {
+    my ($self, $arg) = @_;
+    return 0 unless @$arg;
+    return 0 unless ref $arg eq 'ARRAY';
+    foreach (@{$arg}) {
+        return 0 unless $self->checkInt($_);
+    }
+    return 1;
 }
 
 =head2 checkUsername
