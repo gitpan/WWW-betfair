@@ -6,7 +6,6 @@ use Crypt::CBC;
 
 
 # Skip all tests as authentication is required to test
-
 BEGIN{do {plan skip_all => 'tests not run on install as user credentials are required to test betfair API.'}};
 
 # Prepare cipher
@@ -53,8 +52,8 @@ SKIP: {
     ok($b->getAllCurrencies, 'getAllCurrencies');
     ok($b->getAllCurrenciesV2, 'getAllCurrenciesV2');
     ok($b->getCurrentBets({
-                            betStatus           => "C",
-                            detailed            => "false",
+                            betStatus           => "U",
+                            detailed            => "true",
                             orderBy             => "NONE",
                             recordCount         => "100",
                             startRecord         => "0",
@@ -66,6 +65,18 @@ SKIP: {
 
 =head2 Other example tests not included due to their time / event dependence
 
+    ok($b->cancelBetsByMarket({ markets => [109799180] }), 'cancelBetsByMarket');
+    ok($b->getBetHistory({
+                            betTypesIncluded    => 'M',
+                            detailed            => 'false',
+                            eventTypeIds        => [6],
+                            marketTypesIncluded => ['O'],
+                            placedDateFrom      => '2013-01-01T00:00:00.000Z',         
+                            placedDateTo        => '2013-06-30T00:00:00.000Z',         
+                            recordCount         => 100,
+                            sortBetsBy          => 'PLACED_DATE',
+                            startRecord         => 0,
+                                    }), 'test method');
     ok($b->getMarket({marketId => 109694512}), 'getMarket'); 
     ok($b->cancelBets({betIds => [27886464953, 27886464952]}), 'cancelBets');
     ok($b->getAccountStatement({
@@ -135,28 +146,27 @@ SKIP: {
                             noTotalRecordCount  => "true",
                             }), 'getCurrentBets');
     ok($b->addPaymentCard({}), 'addPaymentCard');
-    ok($b->placeBets({bets => [{ 
-                            asianLineId         => 0,
-                            betCategoryType     => 'E',
-                            betPersistenceType  => 'NONE',
-                            betType             => 'B',
-                            bspliability        => 2,
-                            marketId            => 109694512,
-                            price               => 10,
-                            selectionId         => 162084,
-                            size                => 2,
-                            },
-                            {asianLineId         => 0,
-                            betCategoryType     => 'E',
-                            betPersistenceType  => 'NONE',
-                            betType             => 'B',
-                            bspliability        => 2,
-                            marketId            => 109694512,
-                            price               => 20,
-                            selectionId         => 162083,
-                            size                => 2,
-                            }],
-                            }), 'placeBets');
+    ok($b->getMarketTradedVolumeCompressed({ marketId => 109799180 }), 'getMarketTradedVolumeCompressed');
+
+Methods written but not implemented:
+
+sub getSilks {
+    my ($self, $args) = @_;
+    my $checkParams = {
+        markets => ['arrayInt', 1],
+    };
+    # adjust args into betfair api required structure
+    my $params = { markets  => {
+                            int => $args->{markets},
+                   },
+    };
+    if ($self->_doRequest('getSilks', 1, $params)) {
+        my $silks = [];
+        my $response = $self->{response}->{'soap:Body'}->{'n:getSilksResponse'}->{'n:Result'}->{'marketDisplayDetails'}->{'MarketDisplayDetail'};
+        return 1;
+    } 
+    return 0; 
+}
 
 =cut
 

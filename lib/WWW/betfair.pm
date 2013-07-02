@@ -15,11 +15,11 @@ WWW::betfair - interact with the betfair API using OO Perl
 
 =head1 VERSION
 
-Version 0.08
+Version 0.09
 
 =cut
 
-our $VERSION = '0.08';
+our $VERSION = '0.09';
 
 
 =head1 WARNING
@@ -253,15 +253,15 @@ Returns the betfair converted amount of currency see L<convertCurrency|http://bd
 
 =item *
 
-amount - this is the decimal amount of base currency to convert.
+amount: this is the decimal amount of base currency to convert.
 
 =item *
 
-fromCurrency - this is the base currency to convert from.
+fromCurrency : this is the base currency to convert from.
 
 =item *
 
-toCurrency - this is the target currency to convert to.
+toCurrency : this is the target currency to convert to.
 
 =back
 
@@ -571,6 +571,7 @@ Example
                             sortBetsBy          => 'PLACED_DATE',
                             startRecord         => 0,
                             });
+
 =cut
 
 sub getBetHistory {
@@ -607,7 +608,7 @@ sub getBetHistory {
 
     if ($self->_doRequest('getBetHistory', 1, $args) ) {
         my $response = $self->_forceArray(
-                $self->{response}->{'soap:Body'}->{'n:getBetHistoryResponse'}->{'n:Result'}->{'bets'}->{'n2:Bet'});
+                $self->{response}->{'soap:Body'}->{'n:getBetHistoryResponse'}->{'n:Result'}->{'betHistoryItems'}->{'n2:Bet'});
         my $betHistory = [];
         foreach (@{$response}) {
             my $bet = {
@@ -901,76 +902,67 @@ sub getMarket {
     return 0;
 }
 
-=head2 getCompleteMarketPrices
+=head2 getCompleteMarketPricesCompressed
 
-Returns a hashref of market data including an arrayhashref of individual runners prices or 0 on failure. See L<http://bdp.betfair.com/docs/GetCompleteMarketPricesCompressed.html> for details. Note that this method de-serializes the compressed string returned by the betfair method into a Perl data structure. Requires:
+Returns a hashref of market data including an arrayhashref of individual selection prices data. See L<getCompleteMarketPricesCompressed|http://bdp.betfair.com/docs/GetCompleteMarketPricesCompressed.html> for details. Note that this method de-serializes the compressed string returned by the betfair method into a Perl data structure. Requires:
 
 =over
 
 =item *
 
-marketId : integer of the betfair market id,
-
-=item *
-
-currencyCode : string of the three letter ISO 4217 currency code (optional). If this is not provided, the users home currency is used
+marketId : integer representing the betfair market id.
 
 =back
 
 Example
 
-    my $marketPriceData = $betfair->getCompleteMarketPrices({marketId => 123456789, currencyCode => 'GBP'}); 
+    my $marketPriceData = $betfair->getCompleteMarketPricesCompressed({marketId => 123456789}); 
 
 =cut
 
-sub getCompleteMarketPrices {
+sub getCompleteMarketPricesCompressed {
     my ($self, $args) = @_;
     my $checkParams = { marketId => ['int', 1] };
     return 0 unless $self->_checkParams($checkParams, $args);
     if ($self->_doRequest('getCompleteMarketPricesCompressed', 1, $args)) {
-        my @compressed_prices = split /:/, $self->{response}->{'soap:Body'}->{'n:getCompleteMarketPricesCompressedResponse'}->{'n:Result'}->{'completeMarketPrices'}->{'content'};
-        my $compressed_prices_ref = { marketId => shift @compressed_prices };
-        foreach (@compressed_prices) {
-            my @selection_array = split /\|/, $_;
-            my ($selection_back_prices_ref, $selection_lay_prices_ref, $selection_bspBack_prices_ref, $selection_bspLay_prices_ref);
-            my @selection_prices_array = split /~/, $selection_array[1];
-            while (@selection_prices_array){
-                my $price_ref = {
-                    price           => shift(@selection_prices_array),
-                    back_amount     => shift(@selection_prices_array),
-                    lay_amount      => shift(@selection_prices_array),
-                    bsp_back_amount => shift(@selection_prices_array),
-                    bsp_lay_amount  => shift(@selection_prices_array),
-                };
-                push(@$selection_back_prices_ref, $price_ref) if $price_ref->{ 'back_amount' } ne '0.0';
-                push(@$selection_lay_prices_ref, $price_ref) if $price_ref->{ 'lay_amount' } ne '0.0';
-                push(@$selection_bspBack_prices_ref, $price_ref) if $price_ref->{ 'bsp_back_amount' } ne '0.0';
-                push(@$selection_bspLay_prices_ref, $price_ref) if $price_ref->{ 'bsp_lay_amount' } ne '0.0';
+        my $response = $self->{response}->{'soap:Body'}->{'n:getCompleteMarketPricesCompressedResponse'}->{'n:Result'}->{'completeMarketPrices'}->{'content'};
+        my @fields = split /:/, $response;
+        #109799180~0~;name,timeRemoved,reductionFactor;
+        my $idAndRemovedRunners = shift @fields; # not used yet
+        my $selections = [];
+        foreach my $selection (@fields) {
+            my @selectionFields = split /\|/, $selection;
+            my @selectionData = split /~/, shift @selectionFields;
+            my $prices = [];
+            next unless $selectionFields[0];
+            my @selectionPrices = split /~/, $selectionFields[0];
+            while (@selectionPrices) {
+                push @{$prices}, {
+                    price           => shift @selectionPrices,
+                    back_amount     => shift @selectionPrices,
+                    lay_amount      => shift @selectionPrices,
+                    bsp_back_amount => shift @selectionPrices,
+                    bsp_lay_amount  => shift @selectionPrices,
+                }; 
             }
-            
-            my @selection_metadata_array = split /~/, $selection_array[0];
-            push(@{$compressed_prices_ref->{runners}},{
-                bf_id               => $selection_metadata_array[0],
-                order_index         => $selection_metadata_array[1],
-                total_matched       => $selection_metadata_array[2],
-                last_price_matched  => $selection_metadata_array[3],
-                asian_handicap      => $selection_metadata_array[4],
-                reduction_factor    => $selection_metadata_array[5],
-                vacant              => $selection_metadata_array[6],
-                asian_line_id       => $selection_metadata_array[7],
-                far_price_sp        => $selection_metadata_array[8],
-                near_price_sp       => $selection_metadata_array[9],
-                actual_price_sp     => $selection_metadata_array[10],
-                prices              => {
-                                    back_prices    => [_sortArrayRef($selection_back_prices_ref)], 
-                                    lay_prices     => [_sortArrayRef($selection_lay_prices_ref)],
-                                    bsp_back_prices => [_sortArrayRef($selection_bspBack_prices_ref)], 
-                                    bsp_lay_prices  => [_sortArrayRef($selection_bspLay_prices_ref)],
-                },
-                name            => undef, #name is added in getMarketPricesCombined method
-            });
+            push @{$selections}, {
+                prices              => $prices,
+                selectionId         => $selectionData[0],
+                orderIndex          => $selectionData[1],
+                totalMatched        => $selectionData[2],
+                lastPriceMatched    => $selectionData[3],
+                asianHandicap       => $selectionData[4],
+                reductionFactor     => $selectionData[5],
+                vacant              => $selectionData[6],
+                asianLineId         => $selectionData[7],
+                farPriceSp          => $selectionData[8],
+                nearPriceSp         => $selectionData[9],
+                actualPriceSp       => $selectionData[10],
+            };
         }
-        return $compressed_prices_ref;
+        return {    marketId    => $args->{marketId},
+                    selections  => $selections,
+        };
     }
     return 0;
 }
@@ -1071,6 +1063,103 @@ sub getMUBets {
     }
 }
 
+=head2 getMarketTradedVolume
+
+Returns an arrayref of hashrefs containing the traded volume for a particular market and selection. See L<getMarketTradedVolume|http://bdp.betfair.com/docs/GetMarketTradedVolume.html> for details. Requires:
+
+=over
+
+=item *
+
+marketId : integer representing the betfair market id to return the market traded volume for.
+
+=item *
+
+selectionId : integer representing the betfair selection id of the selection to return matched volume for.
+
+=item *
+
+asianLineId : integer representing the betfair asian line id - this is optional unless the request is for an asian line market.
+
+=back
+
+=cut
+
+sub getMarketTradedVolume {
+    my ($self, $args) = @_;
+    my $checkParams = { marketId    => ['int', 1], 
+                        asianLineId => ['int', 0],
+                        selectionId => ['int', 1],
+    };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    if ($self->_doRequest('getMarketTradedVolume', 1, $args)) {
+        my $response = $self->_forceArray(
+                $self->{response}->{'soap:Body'}->{'n:getMarketTradedVolumeResponse'}->{'n:Result'}->{'priceItems'}->{'n2:VolumeInfo'});
+        my $tradedVolume = [];
+        foreach (@{$response}) {
+            push @{$tradedVolume}, {
+                odds                            => $_->{odds}->{content},
+                totalMatchedAmount              => $_->{totalMatchedAmount}->{content},
+                totalBspBackMatchedAmount       => $_->{totalBspBackMatchedAmount}->{content},
+                totalBspLiabilityMatchedAmount  => $_->{totalBspLiabilityMatchedAmount}->{content},
+            };
+        }
+        return $tradedVolume; 
+    }
+    return 0;
+}
+
+
+=head2 getMarketTradedVolumeCompressed
+
+Returns an arrayref of selections with their total matched amounts plus an array of all traded volume with the trade size and amount. See L<getMarketTradedVolumeCompressed|http://bdp.betfair.com/docs/GetMarketTradedVolumeCompressed.html> for details. Note that this service de-serializes the compressed string return by betfair into a Perl data structure. Requires:
+
+=over
+
+=item *
+
+marketId : integer representing the betfair market id to return the market traded volume for.
+
+=back
+
+=cut
+
+sub getMarketTradedVolumeCompressed {
+    my ($self, $args) = @_;
+    my $checkParams = { marketId => ['int', 1] };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    if ($self->_doRequest('getMarketTradedVolumeCompressed', 1, $args)) {
+        my $response = $self->{response}->{'soap:Body'}->{'n:getMarketTradedVolumeCompressedResponse'}->{'n:Result'}->{'tradedVolume'}->{'content'};
+        my $marketTradedVolume = { marketId => $args->{marketId} }; 
+        foreach my $selection (split /:/, $response) {
+            my @selectionFields = split /\|/, $selection;
+            next unless defined $selectionFields[0];
+            my @selectionData = split /~/, shift @selectionFields;
+            my $tradedAmounts = [];
+            foreach (@selectionFields) {
+                my ($odds, $size) = split /~/, $_;
+                push @{$tradedAmounts}, {
+                    odds => $odds,
+                    size => $size,
+                };
+            }
+
+            push @{$marketTradedVolume->{selections}}, {
+                selectionId                 => $selectionData[0],
+                asianLineId                 => $selectionData[1],
+                actualBSP                   => $selectionData[2],
+                totalBSPBackMatched         => $selectionData[3],
+                totalBSPLiabilityMatched    => $selectionData[4],
+                tradedAmounts               => $tradedAmounts,
+            } if (defined $selectionData[0]);
+        }
+        return $marketTradedVolume; 
+    }
+    return 0;
+}
+
+=head1 BET PLACEMENT API METHODS
+
 =head2 cancelBets
 
 Cancels up to 40 unmatched and active bets on betfair. Returns an arrayref of hashes of cancelled bets. See L<http://bdp.betfair.com/docs/CancelBets.html> for details. Requires:
@@ -1092,11 +1181,8 @@ Example
 sub cancelBets {
     my ($self, $args) = @_;
     my $checkParams = {
-        betIds => ['int', 1],
+        betIds => ['arrayInt', 1],
     };
-    foreach (@{$args->{betIds}}) {
-        return 0 unless $self->_checkParams($checkParams, { betIds => $_ });
-    }
     # adjust args into betfair api required structure
     my $params = { bets => {
                             CancelBets => {
@@ -1126,6 +1212,46 @@ sub cancelBets {
         return $cancelled_bets;
     }
 }
+
+=head2 cancelBetsByMarket
+
+Receives an arrayref of marketIds and cancels all unmatched bets on those markets. Returns an arrayref of hashrefs of market ids and results. See L<cancelBetsByMarket|http://bdp.betfair.com/docs/CancelBetsByMarket.html> for details. Requires:
+
+=over
+
+=item *
+
+markets : arrayref of integers representing market ids.
+
+=back
+
+=cut
+
+sub cancelBetsByMarket {
+    my ($self, $args) = @_;
+    my $checkParams = {
+        markets => ['arrayInt', 1],
+    };
+    # adjust args into betfair api required structure
+    my $params = { markets  => {
+                            int => $args->{markets},
+                   },
+    };
+    my $cancelled_bets = [];
+    if ($self->_doRequest('cancelBetsByMarket', 1, $params)) {
+        my $response = $self->_forceArray( 
+            $self->{response}->{'soap:Body'}->{'n:cancelBetsByMarketResponse'}->{'n:Result'}->{'n2:CancelBetsByMarketResult'});
+        foreach (@{$response} ) {
+            push(@$cancelled_bets, {
+                success     => $_->{'marketId'}->{'content'},
+                resultCode  => $_->{'resultCode'}->{'content'},
+            });
+        }
+        return $cancelled_bets;
+    } 
+    return 0;
+}
+
 
 =head2 placeBets
 
