@@ -15,11 +15,11 @@ WWW::betfair - interact with the betfair API using OO Perl
 
 =head1 VERSION
 
-Version 0.09
+Version 0.1
 
 =cut
 
-our $VERSION = '0.09';
+our $VERSION = '0.1';
 
 
 =head1 WARNING
@@ -661,8 +661,83 @@ sub getBetHistory {
     return 0;
 }
 
+=head2 getBetLite
+
+Returns a hashref of bet information. See L<getBetLite|http://bdp.betfair.com/docs/GetBetLite.html> for details. Requires a hashref with the following key pair/s:
+
+=over
+
+=item *
+
+betId : integer representing the betfair id for the bet to retrieve data about.
+
+=back
+
+Example
+
+    my $betData = $betfair->getBetLite({betId => 123456789});
+
+=cut
+
+sub getBetLite {
+    my ($self, $args) = @_;
+    my $checkParams = { betId => ['int', 1] };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    if ($self->_doRequest('getBetLite', 1, $args)) {
+        my $response = $self->{response}->{'soap:Body'}->{'n:getBetLiteResponse'}->{'n:Result'}->{'betLite'};
+        return {
+            betCategoryType     => $response->{betCategoryType}->{content},
+            betId               => $response->{betId}->{content},
+            betPersistenceType  => $response->{betPersistenceType}->{content},
+            betStatus           => $response->{betStatus}->{content},
+            bspLiability        => $response->{bspLiability}->{content},
+            marketId            => $response->{marketId}->{content},
+            matchedSize         => $response->{matchedSize}->{content},
+            remainingSize       => $response->{remainingSize}->{content},
+        };
+    } 
+    return 0; 
+}
 
 
+=head2 getBetMatchesLite
+
+Returns an arrayref of hashrefs of matched bet information. See L<getBetMatchesLite|http://bdp.betfair.com/docs/GetBetMatchesLite.html> for details. Requires a hashref with the following key pair/s:
+
+=over
+
+=item *
+
+betId : integer representing the betfair id for the bet to retrieve data about.
+
+=back
+
+Example
+
+    my $betData = $betfair->getBetMatchesLite({betId => 123456789});
+
+=cut
+
+sub getBetMatchesLite {
+    my ($self, $args) = @_;
+    my $checkParams = { betId => ['int', 1] };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    if ($self->_doRequest('getBetMatchesLite', 1, $args)) {
+        my $response = $self->_forceArray($self->{response}->{'soap:Body'}->{'n:getBetMatchesLiteResponse'}->{'n:Result'}->{matchLites}->{'n2:MatchLite'});
+        my $matchedBets = [];
+        foreach (@{$response}) {
+            push @{$matchedBets}, {
+                betStatus       => $_->{betStatus}->{content},
+                matchedDate     => $_->{matchedDate}->{content},
+                priceMatched    => $_->{priceMatched}->{content},
+                sizeMatched     => $_->{sizeMatched}->{content},
+                transactionId   => $_->{transactionId}->{content},
+            };
+        }
+        return $matchedBets;
+    } 
+    return 0; 
+}
 
 =head2 getCurrentBets
 
@@ -672,7 +747,7 @@ Returns an arrayref of hashrefs of current bets or 0 on failure. See L<http://bd
 
 =item *
 
-betStatus : string of a valid BetStatusEnum type as defined by betfair (see L<http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>)
+betStatus : string of a valid BetStatus enum type as defined by betfair see L<betStatusEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1028849i1028849> for details.
 
 =item *
 
@@ -776,6 +851,135 @@ sub getCurrentBets {
             push @{$current_bets}, $bet;
         }
         return $current_bets;
+    }
+    return 0;
+}
+
+=head2 getCurrentBetsLite
+
+Returns an arrayref of hashrefs of current bets for a single market or the entire exchange. See L<getCurrentBetsLite|http://bdp.betfair.com/docs/GetCurrentBetsLite.html> for details. Requires a hashref with the following parameters:
+
+=over
+
+=item *
+
+betStatus : string of a valid BetStatus enum type as defined by betfair see L<betStatusEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1028849i1028849> for details.
+
+=item *
+
+orderBy : string of a valid BetsOrderByEnum types as defined by betfair  (see L<http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>)
+
+=item *
+
+recordCount : integer of the maximum number of records to return
+
+=item *
+
+startRecord : integer of the index of the first record to retrieve. The index is zero-based so 0 would indicate the first record in the resultset
+
+=item *
+
+noTotalRecordCount : string of either 'true' or 'false' to return a total record count
+
+=item *
+
+marketId : integer of the betfair market id for which current bets are required (optional)
+
+=back
+
+Example
+
+    my $bets = $betfair->getCurrentBetsLite({
+                            betStatus           => 'M',
+                            orderBy             => 'PLACED_DATE',
+                            recordCount         => 100,
+                            startRecord         => 0,
+                            noTotalRecordCount  => 'true',
+                            });
+
+=cut
+
+sub getCurrentBetsLite {
+    my ($self, $args) = @_;
+    my $checkParams = {
+        betStatus           => ['betStatusEnum', 1],
+        orderBy             => ['betsOrderByEnum', 1],
+        recordCount         => ['int', 1,],
+        startRecord         => ['int', 1],
+        noTotalRecordCount  => ['boolean', 1],
+        marketId            => ['int',0],
+    };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    if ($self->_doRequest('getCurrentBetsLite', 1, $args) ) {
+        my $response = $self->_forceArray(
+                $self->{response}->{'soap:Body'}->{'n:getCurrentBetsLiteResponse'}->{'n:Result'}->{'betLites'}->{'n2:BetLite'});
+        my $current_bets = [];
+        foreach (@{$response}) {
+            push @{$current_bets}, {
+                betCategoryType     => $_->{betCategoryType}->{content},
+                betId               => $_->{betId}->{content},
+                betPersistenceType  => $_->{betPersistenceType}->{content},
+                betStatus           => $_->{betStatus}->{content},
+                bspLiability        => $_->{bspLiability}->{content},
+                marketId            => $_->{marketId}->{content},
+                matchedSize         => $_->{matchedSize}->{content},
+                remainingSize       => $_->{remainingSize}->{content},
+            };
+        }
+        return $current_bets;
+    }
+    return 0;
+}
+
+=head2 getDetailAvailableMktDepth
+
+Returns an arrayref of current back and lay offers in a market for a specific selection. See L<getAvailableMktDepth|http://bdp.betfair.com/docs/GetDetailAvailableMarketDepth.html> for details. Requires a hashref with the following arguments:
+
+=over
+
+=item *
+
+marketId : integer representing the betfair market id to return the market prices for.
+
+=item * 
+
+selectionId : integer representing the betfair selection id to return market prices for.
+
+=item *
+
+asianLineId : integer representing the betfair asian line id of the market - only required if the market is an asian line market (optional).
+
+=back
+
+Example
+
+    my $selectionPrices = $betfair->getDetailAvailableMktDepth({marketId    => 123456789,
+                                                                selectionId => 987654321,
+                                                               });
+
+=cut
+
+sub getDetailAvailableMktDepth {
+    my ($self, $args) = @_;
+    my $checkParams = { marketId    => ['int', 1], 
+                        selectionId => ['int', 1],
+                        asianLineId => ['int', 0],
+    };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    if ($self->_doRequest('getDetailAvailableMktDepth', 1, $args)) {
+        my $response = $self->_forceArray(
+                $self->{response}->{'soap:Body'}->{'n:getDetailAvailableMktDepthResponse'}->{'n:Result'}->{'priceItems'}->{'n2:AvailabilityInfo'});
+        my $marketPrices = [];
+        foreach (@{$response}){
+            push @{$marketPrices}, {
+                odds                    => $_->{odds}->{content},
+                totalAvailableBackAmount=> $_->{totalAvailableBackAmount}->{content},
+                totalAvailableLayAmount => $_->{totalAvailableLayAmount}->{content},
+                totalBspBackAmount      => $_->{totalBspBackAmount}->{content},
+                totalBspLayAmount       => $_->{totalBspLayAmount}->{content},
+            };
+        }
+        return $marketPrices;
     }
     return 0;
 }

@@ -1,5 +1,8 @@
 Revision history for WWW-betfair
 
+0.1     2 July 2013
+        Added getBetLite, getBetMatchesLite, getCurrentBetsLite, and getAvailableMktDepth methods.
+
 0.09    1 July 2013
         Added getMarketTradedVolume, getMarketTradedVolumeCompressed and cancelBetsByMarket methods. Refactored and renamed getCompleteMarketPrices to getCompleteMarketPricesCompressed to be in line with the betfair API method of the same name.
 

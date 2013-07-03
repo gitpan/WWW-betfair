@@ -147,7 +147,16 @@ SKIP: {
                             }), 'getCurrentBets');
     ok($b->addPaymentCard({}), 'addPaymentCard');
     ok($b->getMarketTradedVolumeCompressed({ marketId => 109799180 }), 'getMarketTradedVolumeCompressed');
-
+    ok(print($b->getCurrentBetsLite({
+                            betStatus           => "M",
+                            orderBy             => "NONE",
+                            recordCount         => "100",
+                            startRecord         => "0",
+                            noTotalRecordCount  => "true",
+                            })), 'getCurrentBets');
+    ok(print Dumper($b->getDetailAvailableMktDepth({marketId    => 109799180,
+                                             selectionId => 3155216,
+                                                               })), 'test');
 Methods written but not implemented:
 
 sub getSilks {
