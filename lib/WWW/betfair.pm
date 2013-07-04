@@ -15,11 +15,11 @@ WWW::betfair - interact with the betfair API using OO Perl
 
 =head1 VERSION
 
-Version 0.1
+Version 0.11
 
 =cut
 
-our $VERSION = '0.1';
+our $VERSION = '0.11';
 
 
 =head1 WARNING
@@ -115,6 +115,10 @@ sub new {
 
 Returns the error message from the betfair API response. Upon a successful call API the value returned by getError is usually 'OK'.
 
+Example
+
+    my $error = $betfair->getError;
+
 =cut
 
 sub getError {
@@ -127,6 +131,10 @@ sub getError {
 
 Returns a string of the XML message sent to betfair. This can be useful to inspect if de-bugging a failed API call.
 
+Example
+
+    my $xmlSent = $betfair->getXMLSent;
+
 =cut
 
 sub getXMLSent {
@@ -138,6 +146,10 @@ sub getXMLSent {
 
 Returns a string of the XML message received from betfair. This can be useful to inspect if de-bugging a failed API call.
 
+Example
+
+    my $xmlReceived = $betfair->getXMLReceived;
+
 =cut
 
 sub getXMLReceived {
@@ -148,6 +160,10 @@ sub getXMLReceived {
 =head2 getHashReceived
 
 Returns a Perl data structure consisting of the entire de-serialized betfair XML response. This can be useful to inspect if de-bugging a failed API call and easier to read than the raw XML message, especially if used in conjunction with L<Data::Dumper>.
+
+Example
+
+    my $hashReceived = $betfair->getHashReceived;
 
 =cut
 
@@ -739,6 +755,71 @@ sub getBetMatchesLite {
     return 0; 
 }
 
+=head2 getCompleteMarketPricesCompressed
+
+Returns a hashref of market data including an arrayhashref of individual selection prices data. See L<getCompleteMarketPricesCompressed|http://bdp.betfair.com/docs/GetCompleteMarketPricesCompressed.html> for details. Note that this method de-serializes the compressed string returned by the betfair method into a Perl data structure. Requires:
+
+=over
+
+=item *
+
+marketId : integer representing the betfair market id.
+
+=back
+
+Example
+
+    my $marketPriceData = $betfair->getCompleteMarketPricesCompressed({marketId => 123456789}); 
+
+=cut
+
+sub getCompleteMarketPricesCompressed {
+    my ($self, $args) = @_;
+    my $checkParams = { marketId => ['int', 1] };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    if ($self->_doRequest('getCompleteMarketPricesCompressed', 1, $args)) {
+        my $response = $self->{response}->{'soap:Body'}->{'n:getCompleteMarketPricesCompressedResponse'}->{'n:Result'}->{'completeMarketPrices'}->{'content'};
+        my @fields = split /:/, $response;
+        #109799180~0~;name,timeRemoved,reductionFactor;
+        my $idAndRemovedRunners = shift @fields; # not used yet
+        my $selections = [];
+        foreach my $selection (@fields) {
+            my @selectionFields = split /\|/, $selection;
+            my @selectionData = split /~/, shift @selectionFields;
+            my $prices = [];
+            next unless $selectionFields[0];
+            my @selectionPrices = split /~/, $selectionFields[0];
+            while (@selectionPrices) {
+                push @{$prices}, {
+                    price           => shift @selectionPrices,
+                    back_amount     => shift @selectionPrices,
+                    lay_amount      => shift @selectionPrices,
+                    bsp_back_amount => shift @selectionPrices,
+                    bsp_lay_amount  => shift @selectionPrices,
+                }; 
+            }
+            push @{$selections}, {
+                prices              => $prices,
+                selectionId         => $selectionData[0],
+                orderIndex          => $selectionData[1],
+                totalMatched        => $selectionData[2],
+                lastPriceMatched    => $selectionData[3],
+                asianHandicap       => $selectionData[4],
+                reductionFactor     => $selectionData[5],
+                vacant              => $selectionData[6],
+                asianLineId         => $selectionData[7],
+                farPriceSp          => $selectionData[8],
+                nearPriceSp         => $selectionData[9],
+                actualPriceSp       => $selectionData[10],
+            };
+        }
+        return {    marketId    => $args->{marketId},
+                    selections  => $selections,
+        };
+    }
+    return 0;
+}
+
 =head2 getCurrentBets
 
 Returns an arrayref of hashrefs of current bets or 0 on failure. See L<http://bdp.betfair.com/docs/GetCurrentBets.html> for details. Requires a hashref with the following parameters:
@@ -1059,6 +1140,49 @@ sub getEvents {
     }
 }
 
+=head2 getInPlayMarkets
+
+Returns an arrayref of hashrefs of market data or 0 on failure. See L<getInPlayMarkets|http://bdp.betfair.com/docs/GetInPlayTodayMarkets.html> for details. Does not require any parameters.
+
+Example
+
+    my $inPlayMarkets = $betfair->getInPlayMarkets;
+
+=cut
+
+sub getInPlayMarkets {
+    my $self = shift;
+    if ($self->_doRequest('getInPlayMarkets', 1, {}) ) {
+        my $response = $self->{response}->{'soap:Body'}->{'n:getInPlayMarketsResponse'}->{'n:Result'}->{'marketData'}->{content};
+        my $markets = [];
+        foreach (split /:/, $response) {
+            next unless $_;
+            my @data = split /~/, $_;
+            push @{$markets}, {
+                marketId            => $data[0],
+                marketName          => $data[1],
+                marketType          => $data[2],
+                marketStatus        => $data[3],
+                eventDate           => $data[4],
+                menuPath            => $data[5],
+                eventHierarchy      => $data[6],
+                betDelay            => $data[7],
+                exchangeId          => $data[8],
+                isoCountryCode      => $data[9],
+                lastRefresh         => $data[10],
+                numberOfRunner      => $data[11],
+                numberOfWinners     => $data[12],
+                totalAmountMatched  => $data[13],
+                bspMarket           => $data[14],
+                turningInPlay       => $data[15],
+            };
+
+        }
+        return 1;
+    } 
+    return 0;
+}
+
 =head2 getMarket
 
 Returns a hash of market data or 0 on failure. See L<http://bdp.betfair.com/docs/GetMarket.html> for details. Requires:
@@ -1076,7 +1200,6 @@ Example
     my $marketData = $betfair->getMarket({marketId => 108690258});
 
 =cut
-
 
 sub getMarket {
     my ($self, $args) = @_;
@@ -1106,9 +1229,126 @@ sub getMarket {
     return 0;
 }
 
-=head2 getCompleteMarketPricesCompressed
+=head2 getMarketInfo
 
-Returns a hashref of market data including an arrayhashref of individual selection prices data. See L<getCompleteMarketPricesCompressed|http://bdp.betfair.com/docs/GetCompleteMarketPricesCompressed.html> for details. Note that this method de-serializes the compressed string returned by the betfair method into a Perl data structure. Requires:
+Returns a hash of market data or 0 on failure. See L<getMarketInfo|http://bdp.betfair.com/docs/GetMarketInfo.html> for details. Requires:
+
+=over
+
+=item *
+
+marketId : integer which is the betfair id of the market
+
+=back
+
+Example
+
+    my $marketData = $betfair->getMarketInfo({marketId => 108690258});
+
+=cut
+
+sub getMarketInfo {
+    my ($self, $args) = @_;
+    my $checkParams = { marketId => ['int', 1] };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    if ($self->_doRequest('getMarketInfo', 1, $args) ) {
+        my $response = $self->{response}->{'soap:Body'}->{'n:getMarketInfoResponse'}->{'n:Result'}->{'marketLite'};
+        return {
+            delay               => $response->{'delay'}->{'content'},
+            numberOfRunners     => $response->{'numberOfRunners'}->{'content'},
+            marketSuspendTime   => $response->{'marketSuspendTime'}->{'content'}, 
+            marketTime          => $response->{'marketTime'}->{'content'},
+            marketStatus        => $response->{'marketStatus'}->{'content'},
+            openForBspBetting   => $response->{'openForBspBetting'}->{'content'},
+        };
+    } 
+    return 0;
+}
+
+=head2 getMarketPrices
+
+Returns a hashref of market data or 0 on failure. See L<getMarketPrices|http://bdp.betfair.com/docs/GetMarketPrices.html> for details. Requires:
+
+=over
+
+=item *
+
+marketId : integer which is the betfair id of the market
+
+=back
+
+Example
+
+    my $marketPrices = $betfair->getMarketPrices({marketId => 108690258});
+
+=cut
+
+sub getMarketPrices {
+    my ($self, $args) = @_;
+    my $checkParams = { marketId => ['int', 1] };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    if ($self->_doRequest('getMarketPrices', 1, $args) ) {
+        my $response = $self->{response}->{'soap:Body'}->{'n:getMarketPricesResponse'}->{'n:Result'}->{'marketPrices'};
+        my $runners_list = $self->_forceArray($response->{'runnerPrices'}->{'n2:RunnerPrices'});
+        my @parsed_runners = ();
+        foreach my $runner (@{$runners_list}) {
+            my $bestPricesToBack = $self->_forceArray($runner->{bestPricesToBack}->{'n2:Price'});
+            my @backPrices = ();
+            foreach my $backPrice (@{$bestPricesToBack}){
+                push(@backPrices, {
+                    amountAvailable => $backPrice->{amountAvailable}->{content},
+                    betType         => $backPrice->{betType}->{content},
+                    depth           => $backPrice->{depth}->{content},
+                    price           => $backPrice->{price}->{content},
+                });
+            }
+            my $bestPricesToLay = $self->_forceArray($runner->{bestPricesToLay}->{'n2:Price'});
+            my @layPrices = ();
+            foreach my $layPrice (@{$bestPricesToLay}){
+                push(@layPrices, {
+                    amountAvailable => $layPrice->{amountAvailable}->{content},
+                    betType         => $layPrice->{betType}->{content},
+                    depth           => $layPrice->{depth}->{content},
+                    price           => $layPrice->{price}->{content},
+                });
+            }
+            push(@parsed_runners, {
+                actualBSP           => $runner->{'actualBSP'}->{content},
+                asianLineId         => $runner->{asianLineId}->{content},
+                bestPricesToBack    => \@backPrices,
+                bestPricesToLay     => \@layPrices,
+                farBSP              => $runner->{farBSP}->{content},
+                handicap            => $runner->{handicap}->{content},
+                lastPriceMatched    => $runner->{lastPriceMatched}->{content},
+                nearBSP             => $runner->{nearBSP}->{content},
+                reductionFactor     => $runner->{reductionFactor}->{content},
+                selectionId         => $runner->{selectionId}->{content},
+                sortOrder           => $runner->{sortOrder}->{content},
+                totalAmountMatched  => $runner->{totalAmountMatched}->{content},
+                vacant              => $runner->{vacant}->{content},
+            });
+        }
+        return {
+            bspMarket       => $response->{bspMarket}->{content},
+            currencyCode    => $response->{currencyCode}->{content},
+            delay           => $response->{delay}->{content}, 
+            discountAllowed => $response->{discountAllowed}->{content},
+            lastRefresh     => $response->{lastRefresh}->{content},
+            marketBaseRate  => $response->{marketBaseRate}->{content},
+            marketId        => $response->{marketId}->{content},
+            marketInfo      => $response->{marketInfo}->{content},
+            marketStatus    => $response->{marketStatus}->{content},
+            numberOfWinners => $response->{numberOfWinners}->{content},
+            removedRunners  => $response->{removedRunners}->{content},
+            runners         => \@parsed_runners,
+        };
+    } 
+    return 0;
+}
+
+=head2 getMarketPricesCompressed
+
+Returns a hashref of market data including an arrayhashref of individual selection prices data. See L<getMarketPricesCompressed|http://bdp.betfair.com/docs/GetMarketPricesCompressed.html> for details. Note that this method de-serializes the compressed string returned by the betfair method into a Perl data structure. Requires:
 
 =over
 
@@ -1120,37 +1360,57 @@ marketId : integer representing the betfair market id.
 
 Example
 
-    my $marketPriceData = $betfair->getCompleteMarketPricesCompressed({marketId => 123456789}); 
+    my $marketPriceData = $betfair->getMarketPricesCompressed({marketId => 123456789}); 
 
 =cut
 
-sub getCompleteMarketPricesCompressed {
+sub getMarketPricesCompressed {
     my ($self, $args) = @_;
     my $checkParams = { marketId => ['int', 1] };
     return 0 unless $self->_checkParams($checkParams, $args);
-    if ($self->_doRequest('getCompleteMarketPricesCompressed', 1, $args)) {
-        my $response = $self->{response}->{'soap:Body'}->{'n:getCompleteMarketPricesCompressedResponse'}->{'n:Result'}->{'completeMarketPrices'}->{'content'};
+    if ($self->_doRequest('getMarketPricesCompressed', 1, $args)) {
+        my $response = $self->{response}->{'soap:Body'}->{'n:getMarketPricesCompressedResponse'}->{'n:Result'}->{'marketPrices'}->{'content'};
         my @fields = split /:/, $response;
-        #109799180~0~;name,timeRemoved,reductionFactor;
-        my $idAndRemovedRunners = shift @fields; # not used yet
-        my $selections = [];
+        my @marketData = split /~/, shift @fields;
+        my @removedRunners;
+        if ($marketData[9]){
+            foreach (split /;/, $marketData[9]){
+                next unless $_;
+                my @removedRunnerData = split /,/;
+                push (@removedRunners, {
+                    selectionId     => $removedRunnerData[0],
+                    timeRemoved     => $removedRunnerData[1],
+                    reductionFactor => $removedRunnerData[2],
+                });
+            }
+        }
+        my @selections;
         foreach my $selection (@fields) {
             my @selectionFields = split /\|/, $selection;
-            my @selectionData = split /~/, shift @selectionFields;
-            my $prices = [];
             next unless $selectionFields[0];
-            my @selectionPrices = split /~/, $selectionFields[0];
-            while (@selectionPrices) {
-                push @{$prices}, {
-                    price           => shift @selectionPrices,
-                    back_amount     => shift @selectionPrices,
-                    lay_amount      => shift @selectionPrices,
-                    bsp_back_amount => shift @selectionPrices,
-                    bsp_lay_amount  => shift @selectionPrices,
-                }; 
+            my @selectionData = split /~/, $selectionFields[0];
+            my (@backPrices, @layPrices);
+            my @backPriceData = split /~/, $selectionFields[1];
+            while (@backPriceData) {
+                push (@backPrices, {
+                    price           => shift @backPriceData,
+                    amount          => shift @backPriceData,
+                    offerType       => shift @backPriceData,
+                    depth           => shift @backPriceData,
+                }); 
             }
-            push @{$selections}, {
-                prices              => $prices,
+            my @layPriceData = split /~/, $selectionFields[2];
+            while (@layPriceData) {
+                push (@layPrices, {
+                    price           => shift @layPriceData,
+                    amount          => shift @layPriceData,
+                    offerType       => shift @layPriceData,
+                    depth           => shift @layPriceData,
+                }); 
+            }
+            push (@selections, {
+                backPrices          => \@backPrices,
+                layPrices           => \@layPrices,
                 selectionId         => $selectionData[0],
                 orderIndex          => $selectionData[1],
                 totalMatched        => $selectionData[2],
@@ -1158,14 +1418,23 @@ sub getCompleteMarketPricesCompressed {
                 asianHandicap       => $selectionData[4],
                 reductionFactor     => $selectionData[5],
                 vacant              => $selectionData[6],
-                asianLineId         => $selectionData[7],
-                farPriceSp          => $selectionData[8],
-                nearPriceSp         => $selectionData[9],
-                actualPriceSp       => $selectionData[10],
-            };
+                farPriceSp          => $selectionData[7],
+                nearPriceSp         => $selectionData[8],
+                actualPriceSp       => $selectionData[9],
+            });
         }
-        return {    marketId    => $args->{marketId},
-                    selections  => $selections,
+        return {    marketId                => $args->{marketId},
+                    currency                => $marketData[1],
+                    marketStatus            => $marketData[2],
+                    InPlayDelay             => $marketData[3],
+                    numberOfWinners         => $marketData[4],
+                    marketInformation       => $marketData[5],
+                    discountAllowed         => $marketData[6],
+                    marketBaseRate          => $marketData[7],
+                    refreshTimeMilliseconds => $marketData[8],
+                    BSPmarket               => $marketData[10],
+                    removedRunnerInformation=> \@removedRunners,
+                    selections              => \@selections,
         };
     }
     return 0;
@@ -1203,7 +1472,7 @@ marketId : integer of the betfair market id for which current bets are required 
 
 =item *
 
-betId : an array of betIds (optional). If included, betStatus must be 'MU'.
+betIds : an array of betIds (optional). If included, betStatus must be 'MU'.
 
 =back
 
@@ -1230,41 +1499,139 @@ sub getMUBets {
         startRecord         => ['int', 1],
         marketId            => ['int', 0],
         sortOrder           => ['sortOrderEnum', 1],
-        betId               => ['int', 0],
+        betIds              => ['arrayInt', 0],
     };
     return 0 unless $self->_checkParams($checkParams, $args);
+    if (exists $args->{betIds}) {
+        my @betIds = $args->{betIds};
+        $args->{betIds} = {betId => \@betIds};
+    }
     my $mu_bets = [];
     if ($self->_doRequest('getMUBets', 1, $args)) {
         my $response = $self->_forceArray(
             $self->{response}->{'soap:Body'}->{'n:getMUBetsResponse'}->{'n:Result'}->{'bets'}->{'n2:MUBet'});
         foreach (@{$response} ) {
-            $mu_bets = _add_mu_bet($mu_bets, $_);
+            push @{$mu_bets}, {
+                marketId            => $_->{'marketId'}->{'content'},
+                betType             => $_->{'betType'}->{'content'},
+                transactionId       => $_->{'transactionId'}->{'content'},
+                size                => $_->{'size'}->{'content'},
+                placedDate          => $_->{'placedDate'}->{'content'},
+                betId               => $_->{'betId'}->{'content'},
+                betStatus           => $_->{'betStatus'}->{'content'},
+                betCategory_type    => $_->{'betCategoryType'}->{'content'},
+                betPersistence      => $_->{'betPersistenceType'}->{'content'},
+                matchedDate         => $_->{'matchedDate'}->{'content'},
+                selectionId         => $_->{'selectionId'}->{'content'},
+                price               => $_->{'price'}->{'content'},
+                bspLiability        => $_->{'bspLiability'}->{'content'},
+                handicap            => $_->{'handicap'}->{'content'},
+                asianLineId         => $_->{'asianLineId'}->{'content'}
+            };
         }
         return $mu_bets;
     } 
     return 0;
+}
 
-    sub _add_mu_bet {
-        my ($mu_bets, $bet_to_be_added) = @_;
-        push(@$mu_bets, {
-            market_id           => $bet_to_be_added->{'marketId'}->{'content'},
-            bet_type            => $bet_to_be_added->{'betType'}->{'content'},
-            transaction_id      => $bet_to_be_added->{'transactionId'}->{'content'},
-            size                => $bet_to_be_added->{'size'}->{'content'},
-            placed_date         => $bet_to_be_added->{'placedDate'}->{'content'},
-            bet_id              => $bet_to_be_added->{'betId'}->{'content'},
-            bet_status          => $bet_to_be_added->{'betStatus'}->{'content'},
-            bet_category_type   => $bet_to_be_added->{'betCategoryType'}->{'content'},
-            bet_persistence     => $bet_to_be_added->{'betPersistenceType'}->{'content'},
-            matched_date        => $bet_to_be_added->{'matchedDate'}->{'content'},
-            selection_id        => $bet_to_be_added->{'selectionId'}->{'content'},
-            price               => $bet_to_be_added->{'price'}->{'content'},
-            bsp_liability       => $bet_to_be_added->{'bspLiability'}->{'content'},
-            handicap            => $bet_to_be_added->{'handicap'}->{'content'},
-            asian_line_id       => $bet_to_be_added->{'asianLineId'}->{'content'}
-        });
-        return $mu_bets;
+
+=head2 getMUBetsLite
+
+Returns an arrayref of hashes of bets or 0 on failure. See L<http://bdp.betfair.com/docs/GetMUBetsLite.html> for details. Requires:
+
+=over
+
+=item *
+
+betStatus : string of betfair betStatusEnum type, must be either matched, unmatched or both (M, U, MU). See L<http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>
+
+=item *
+
+marketId : integer of the betfair market id for which current bets are required (optional)
+
+=item *
+
+excludeLastSecond : boolean string value ('true' or 'false'). If true then excludes bets matched in the past second (optional)
+
+=item *
+
+matchedSince : a string datetime for which to only return bets matched since this datetime. Must be a valid XML datetime format, see example below (optional)
+
+=item *
+
+orderBy : string of a valid BetsOrderByEnum types as defined by betfair. see L<BetsOrderByEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1033170i1033170>
+
+=item *
+
+recordCount : integer of the maximum number of records to return
+
+=item *
+
+startRecord : integer of the index of the first record to retrieve. The index is zero-based so 0 would indicate the first record in the resultset
+
+=item *
+
+sortOrder : string of the betfair sortOrder enumerated type (either 'ASC' or 'DESC'). See L<sortOrderEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1028852i1028852> for details. 
+
+=item *
+
+betIds : an array of betIds (optional). If included, betStatus must be 'MU'.
+
+=back
+
+Example
+
+    my $muBets = $betfair->getMUBetsLite({
+                            betStatus           => 'MU',
+                            orderBy             => 'PLACED_DATE',
+                            excludeLastSecond   => 'false',
+                            recordCount         => 100,
+                            startRecord         => 0,
+                            matchedSince        => '2013-06-01T00:00:00.000Z',
+                            sortOrder           => 'ASC',
+                            marketId            => 123456789,
+                 });
+
+=cut
+
+sub getMUBetsLite {
+    my ($self, $args ) = @_;
+    my $checkParams = {
+        betStatus           => ['betStatusEnum', 1],
+        orderBy             => ['betsOrderByEnum', 1],
+        matchedSince        => ['date', 0],
+        excludeLastSecond   => ['boolean', 0],
+        recordCount         => ['int', 1,],
+        startRecord         => ['int', 1],
+        marketId            => ['int', 0],
+        sortOrder           => ['sortOrderEnum', 1],
+        betIds              => ['arrayInt', 0],
+    };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    if (exists $args->{betIds}) {
+        my @betIds = $args->{betIds};
+        $args->{betIds} = {betId => \@betIds};
     }
+    my @muBetsLite;
+    if ($self->_doRequest('getMUBetsLite', 1, $args)) {
+        my $response = $self->_forceArray(
+            $self->{response}->{'soap:Body'}->{'n:getMUBetsLiteResponse'}->{'n:Result'}->{'betLites'}->{'n2:MUBetLite'});
+        foreach (@{$response} ) {
+            push (@muBetsLite, {
+                betCategoryType     => $_->{'betCategoryType'}->{'content'},
+                betId               => $_->{'betId'}->{'content'},
+                betPersistenceType  => $_->{'betPersistenceType'}->{'content'},
+                betStatus           => $_->{'betStatus'}->{'content'},
+                bspLiability        => $_->{'bspLiability'}->{'content'},
+                marketId            => $_->{'marketId'}->{'content'},
+                betType             => $_->{'betType'}->{'content'},
+                size                => $_->{'size'}->{'content'},
+                transactionId       => $_->{'transactionId'}->{'content'},
+            });
+        }
+        return \@muBetsLite;
+    } 
+    return 0;
 }
 
 =head2 getMarketTradedVolume
@@ -1286,6 +1653,12 @@ selectionId : integer representing the betfair selection id of the selection to 
 asianLineId : integer representing the betfair asian line id - this is optional unless the request is for an asian line market.
 
 =back
+
+Example
+
+    my $marketVolume = $betfair->getMarketTradedVolume({marketId    => 923456791,
+                                                        selectionId => 30571,
+                                                       });
 
 =cut
 
@@ -1326,6 +1699,10 @@ marketId : integer representing the betfair market id to return the market trade
 
 =back
 
+Example
+
+    my $marketVolume = $betfair->getMarketTradedVolumeCompressed({marketId => 923456791});
+
 =cut
 
 sub getMarketTradedVolumeCompressed {
@@ -1358,6 +1735,54 @@ sub getMarketTradedVolumeCompressed {
             } if (defined $selectionData[0]);
         }
         return $marketTradedVolume; 
+    }
+    return 0;
+}
+
+=head2 getPrivateMarkets
+
+Note - this API method has not been fully tested as it requires a paid betfair subscription.
+
+Returns an arrayref of private markets - see L<getPrivateMarkets|http://bdp.betfair.com/docs/GetPrivateMarket.html> for details. Requires a hashref with the following arguments:
+
+=over
+
+=item *
+
+eventTypeId : integer representing the betfair id of the event type to return private markets for.
+
+=item *
+
+marketType : string of the betfair marketType enum see L<marketTypeEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1020360i1020360>.
+
+=back
+
+Example
+
+    my $privateMarkets = $betfair->getPrivateMarkets({  eventTypeId => 1,
+                                                        marketType  => 'O',
+                                                    });
+
+=cut
+
+sub getPrivateMarkets {
+    my ($self, $args) = @_;
+    my $checkParams = { eventTypeId => ['int', 1],
+                        marketType  => ['marketTypeEnum', 1] };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    if ($self->_doRequest('getPrivateMarkets', 1, $args)) {
+        my $response = $self->_forceArray(
+            $self->{response}->{'soap:Body'}->{'n:getPrivateMarketsResponse'}->{'n:Result'}->{'privateMarkets'}->{'privateMarket'});
+        my @privateMarkets;
+        foreach (@{$response}) {
+            push(@privateMarkets, {
+                        name            => $_->{name}->{content},
+                        marketId        => $_->{marketId}->{content},
+                        menuPath        => $_->{menuPath}->{content},
+                        eventHierarchy  => $_->{eventHierarchy}->{content},
+                    });
+        }
+        return 1;
     }
     return 0;
 }
