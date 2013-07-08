@@ -15,11 +15,11 @@ WWW::betfair - interact with the betfair API using OO Perl
 
 =head1 VERSION
 
-Version 0.11
+Version 0.12
 
 =cut
 
-our $VERSION = '0.11';
+our $VERSION = '0.12';
 
 
 =head1 WARNING
@@ -1090,54 +1090,42 @@ sub getEvents {
     return 0 unless $self->_checkParams($checkParams, $args);
     if ($self->_doRequest('getEvents', 3, $args)) {
         my $event_response = $self->_forceArray($self->{response}->{'soap:Body'}->{'n:getEventsResponse'}->{'n:Result'}->{'eventItems'}->{'n2:BFEvent'});
-        my $event_parent_id = $self->{response}->{'soap:Body'}->{'n:getEventsResponse'}->{'n:Result'}->{'eventParentId'}->{'content'};
         my $events;
         foreach (@{$event_response}) {
-            $events = _add_event($events, $_, $event_parent_id);
+            next unless defined($_->{eventId}->{content});
+            push @{$events->{events}}, {
+                eventId     => $_->{eventId}->{content},
+                eventName   => $_->{eventName}->{content},
+                menuLevel   => $_->{menuLevel}->{content},
+                orderIndex  => $_->{orderIndex}->{content},
+                eventTypeId => $_->{eventTypeId}->{content},
+                startTime   => $_->{startTime}->{content},
+                timezone    => $_->{timezone}->{content},
+            };
         }
         my $market_response = $self->_forceArray(
                 $self->{response}->{'soap:Body'}->{'n:getEventsResponse'}->{'n:Result'}->{'marketItems'}->{'n2:MarketSummary'});  
         foreach (@{$market_response}) {
-            $events = _add_market($events, $_, $event_parent_id);
+            next unless defined($_->{marketId}->{content});
+            push @{$events->{markets}}, {
+                marketId            => $_->{marketId}->{content},
+                marketName          => $_->{marketName}->{content},
+                menuLevel           => $_->{menuLevel}->{content},
+                orderIndex          => $_->{orderIndex}->{content},
+                marketType          => $_->{marketType}->{content},
+                marketTypeVariant   => $_->{marketTypeVariant}->{content},
+                exchangeId          => $_->{exchangeId}->{content},
+                venue               => $_->{venue}->{content},
+                betDelay            => $_->{betDelay}->{content},
+                numberOfWinners     => $_->{numberOfWinners}->{content},
+                startTime           => $_->{startTime}->{content},
+                timezone            => $_->{timezone}->{content},
+                eventTypeId         => $_->{eventTypeId}->{content},
+            };
         }
-
-        # Coupons not currently supported by betfair API, hence deprecating this code for now:
-        #my $coupon_ref = $self->_forceArray($self->{response}->{'soap:Body'}->{'n:getEventsResponse'}->{'n:Result'}->{'couponLinks'}->{'n2:CouponLink'});  
-        #foreach (@{$coupon_ref}) {
-        #   $events->{ 'coupon' }->{ $_->{'couponName'}->{'content'} } = $_->{'couponId'}->{'content'};
-        #}
         return $events;
     } 
     return 0;
-    sub _add_event {
-        my ($events, $event_to_be_added, $event_parent_id) = @_;
-        push(@{$events->{event}}, {
-            bf_id       => $event_to_be_added->{'eventId'}->{'content'},
-            name        => $event_to_be_added->{'eventName'}->{'content'},
-            menu_level  => $event_to_be_added->{'menuLevel'}->{'content'},
-            order_index => $event_to_be_added->{'orderIndex'}->{'content'},
-            parent_id   => $event_parent_id,
-            active_flag => 1,
-            });
-        return $events;
-    }
-    sub _add_market {
-        my ($events, $market_to_be_added, $market_parent_id) = @_;
-        push(@{$events->{market}}, {
-            bf_id           => $market_to_be_added->{'marketId'}->{'content'},
-            name            => $market_to_be_added->{'marketName'}->{'content'},
-            menu_level      => $market_to_be_added->{'menuLevel'}->{'content'},
-            order_index     => $market_to_be_added->{'orderIndex'}->{'content'},
-            type            => $market_to_be_added->{'marketType'}->{'content'},
-            exchange_id     => $market_to_be_added->{'exchangeId'}->{'content'},
-            time            => $market_to_be_added->{'startTime'}->{'content'},
-            timezone        => $market_to_be_added->{'timezone'}->{'content'},
-            parent_id       => $market_parent_id,
-            event_type_id   => $market_to_be_added->{'eventTypeId'}->{'content'},
-            active_flag => 1,
-        });
-        return $events;
-    }
 }
 
 =head2 getInPlayMarkets
@@ -1735,54 +1723,6 @@ sub getMarketTradedVolumeCompressed {
             } if (defined $selectionData[0]);
         }
         return $marketTradedVolume; 
-    }
-    return 0;
-}
-
-=head2 getPrivateMarkets
-
-Note - this API method has not been fully tested as it requires a paid betfair subscription.
-
-Returns an arrayref of private markets - see L<getPrivateMarkets|http://bdp.betfair.com/docs/GetPrivateMarket.html> for details. Requires a hashref with the following arguments:
-
-=over
-
-=item *
-
-eventTypeId : integer representing the betfair id of the event type to return private markets for.
-
-=item *
-
-marketType : string of the betfair marketType enum see L<marketTypeEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1020360i1020360>.
-
-=back
-
-Example
-
-    my $privateMarkets = $betfair->getPrivateMarkets({  eventTypeId => 1,
-                                                        marketType  => 'O',
-                                                    });
-
-=cut
-
-sub getPrivateMarkets {
-    my ($self, $args) = @_;
-    my $checkParams = { eventTypeId => ['int', 1],
-                        marketType  => ['marketTypeEnum', 1] };
-    return 0 unless $self->_checkParams($checkParams, $args);
-    if ($self->_doRequest('getPrivateMarkets', 1, $args)) {
-        my $response = $self->_forceArray(
-            $self->{response}->{'soap:Body'}->{'n:getPrivateMarketsResponse'}->{'n:Result'}->{'privateMarkets'}->{'privateMarket'});
-        my @privateMarkets;
-        foreach (@{$response}) {
-            push(@privateMarkets, {
-                        name            => $_->{name}->{content},
-                        marketId        => $_->{marketId}->{content},
-                        menuPath        => $_->{menuPath}->{content},
-                        eventHierarchy  => $_->{eventHierarchy}->{content},
-                    });
-        }
-        return 1;
     }
     return 0;
 }
