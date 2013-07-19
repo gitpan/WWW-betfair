@@ -27,4 +27,4 @@ requires:
   Time::Piece: 1.2
   XML::Simple: 2.2
   perl: 5.006
-version: 0.12
+version: 0.13

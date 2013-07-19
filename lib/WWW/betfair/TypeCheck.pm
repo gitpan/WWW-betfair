@@ -17,6 +17,7 @@ sub new {
     my $class = shift;
     my $self = {
         typeChecks => { int                         => \&checkInt,
+                        exchangeId                  => \&checkExchangeId,
                         decimal                     => \&checkDecimal,
                         date                        => \&checkDate,
                         string                      => \&checkString,
@@ -24,8 +25,10 @@ sub new {
                         cardDate                    => \&checkCardDate,
                         cv2                         => \&checkCv2,
                         username                    => \&checkUsername,
+                        currencyCode                => \&checkCurrencyCode,
                         password                    => \&checkPassword,
                         boolean                     => \&checkBoolean,
+                        hash                        => \&checkHash,
                         arrayInt                    => \&checkArrayInt,
                         accountStatementEnum        => \&checkAccountStatementEnum,
                         accountStatementIncludeEnum => \&checkAccountStatementIncludeEnum,
@@ -442,6 +445,31 @@ sub checkDecimal {
     return 0;
 }
 
+=head2 checkExchangeId
+
+Checks the exchange id is either 1 (UK), 2 (Australian) or 3 (Global),
+
+=cut
+
+sub checkExchangeId {
+    my ($self, $arg) = @_;
+    return 0 unless defined $arg;
+    return 1 if grep { $_ == $arg } qw/1 2/;
+    return 0;
+}
+
+=head2 checkCurrencyCode
+
+Checks the value submitted is a valid currency code accepted by betfair (e.g. 'EUR', 'GBP', 'CAD'). Accepts whole numbers with no decimal point and negative numbers with a leading minus ('-').
+
+=cut
+
+sub checkCurrencyCode {
+    my ($self, $arg) = @_;
+    return 0 unless defined $arg;
+    return 1 if grep {/^$arg$/} qw/GBP EUR HKD AUD CAD DKK NOK SGD SEK USD/;
+    return 0;
+}
 
 =head2 checkInt
 
@@ -541,6 +569,20 @@ sub checkBoolean {
 Checks that the value is a string with a non-zero length.
 
 =cut
+
+=head2 checkHash
+
+Checks that the argument is a hash.
+
+=cut
+
+sub checkHash {
+    my ($self, $arg) = @_;
+    return 0 unless @$arg;
+    return 0 unless ref $arg eq 'HASH';
+    return 1;
+}
+
 
 sub checkString {
     my ($self, $arg) = @_;

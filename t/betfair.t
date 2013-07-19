@@ -45,10 +45,10 @@ SKIP: {
     ok($b->getEvents({eventParentId => 1}), 'getEvents - 1');
     ok($b->getActiveEventTypes, 'getActiveEventTypes');
     ok($b->getAllEventTypes, 'getAllEventTypes');
-    ok($b->getAllMarkets, 'getAllMarkets');
+    ok($b->getAllMarkets({exchangeId => 1}), 'getAllMarkets');
     ok($b->getPaymentCard, 'getPaymentCard');
     ok($b->getSubscriptionInfo, 'getSubscriptionInfo');
-    ok($b->getAccountFunds, 'getAccountFunds');
+    ok($b->getAccountFunds({exchangeId => 1}), 'getAccountFunds');
     ok($b->getAllCurrencies, 'getAllCurrencies');
     ok($b->getAllCurrenciesV2, 'getAllCurrenciesV2');
     ok($b->getCurrentBets({
@@ -157,102 +157,6 @@ SKIP: {
     ok(print Dumper($b->getDetailAvailableMktDepth({marketId    => 109799180,
                                              selectionId => 3155216,
                                                                })), 'test');
-
-# methods written but not tested
-
-=head2 getPrivateMarkets
-
-Note - this API method has not been fully tested as it requires a paid betfair subscription.
-
-Returns an arrayref of private markets - see L<getPrivateMarkets|http://bdp.betfair.com/docs/GetPrivateMarket.html> for details. Requires a hashref with the following arguments:
-
-=over
-
-=item *
-
-eventTypeId : integer representing the betfair id of the event type to return private markets for.
-
-=item *
-
-marketType : string of the betfair marketType enum see L<marketTypeEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1020360i1020360>.
-
-=back
-
-Example
-
-    my $privateMarkets = $betfair->getPrivateMarkets({  eventTypeId => 1,
-                                                        marketType  => 'O',
-                                                    });
-
-=cut
-
-sub getPrivateMarkets {
-    my ($self, $args) = @_;
-    my $checkParams = { eventTypeId => ['int', 1],
-                        marketType  => ['marketTypeEnum', 1] };
-    return 0 unless $self->_checkParams($checkParams, $args);
-    if ($self->_doRequest('getPrivateMarkets', 1, $args)) {
-        my $response = $self->_forceArray(
-            $self->{response}->{'soap:Body'}->{'n:getPrivateMarketsResponse'}->{'n:Result'}->{'privateMarkets'}->{'privateMarket'});
-        my @privateMarkets;
-        foreach (@{$response}) {
-            push(@privateMarkets, {
-                        name            => $_->{name}->{content},
-                        marketId        => $_->{marketId}->{content},
-                        menuPath        => $_->{menuPath}->{content},
-                        eventHierarchy  => $_->{eventHierarchy}->{content},
-                    });
-        }
-        return 1;
-    }
-    return 0;
-}
-
-=head2 getSilks
-
-
-=cut
-
-sub getSilks {
-    my ($self, $args) = @_;
-    my $checkParams = {
-        markets => ['arrayInt', 1],
-    };
-    # adjust args into betfair api required structure
-    my $params = { markets  => {
-                            int => $args->{markets},
-                   },
-    };
-    if ($self->_doRequest('getSilks', 1, $params)) {
-        my $silks = [];
-        my $response = $self->{response}->{'soap:Body'}->{'n:getSilksResponse'}->{'n:Result'}->{'marketDisplayDetails'}->{'MarketDisplayDetail'};
-        return 1;
-    } 
-    return 0; 
-}
-
-=head2 getSilksV2
-
-
-=cut
-
-sub getSilksV2 {
-    my ($self, $args) = @_;
-    my $checkParams = {
-        markets => ['arrayInt', 1],
-    };
-    # adjust args into betfair api required structure
-    my $params = { markets  => {
-                            int => $args->{markets},
-                   },
-    };
-    if ($self->_doRequest('getSilksV2', 1, $params)) {
-        my $silks = [];
-        my $response = $self->{response}->{'soap:Body'}->{'n:getSilksResponse'}->{'n:Result'}->{'marketDisplayDetails'}->{'MarketDisplayDetail'};
-        return 1;
-    } 
-    return 0; 
-}
 
 =cut
 

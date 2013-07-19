@@ -1,5 +1,8 @@
 Revision history for WWW-betfair
 
+0.13    18 July 2013
+        Added remaining non-free API methods.
+        
 0.12    7 July 2013
         Added getInPlayMarkets, getMarketInfo, getMarketPrices, getMarketPricesCompressed and getMUBetsLite methods. Refactored getEvents method.
 

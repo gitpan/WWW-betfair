@@ -15,12 +15,11 @@ WWW::betfair - interact with the betfair API using OO Perl
 
 =head1 VERSION
 
-Version 0.12
+Version 0.13
 
 =cut
 
-our $VERSION = '0.12';
-
+our $VERSION = '0.13';
 
 =head1 WARNING
 
@@ -32,11 +31,9 @@ To understand how to use the betfair API it is essential to read  the L<betfair 
 
 L<betfair|http://www.betfair.com> is a sports betting services provider best known for hosting a sports betting exchange. The sports betting exchange works like a marketplace: betfair provides an anonymous platform for individuals to offer and take bets on sports events at a certain price and size; it is the ebay of betting. betfair provides an API for the sports betting exchange which enables users to search for sports events and markets, place and update bets and manage their account by depositing and withdrawing funds.
 
-
 =head1 WHY USE THIS LIBRARY?
 
 The betfair API communicates using verbose XML files which contain various bugs and quirks. L<WWW::betfair> makes it easier to use the betfair API by providing a Perl interface which manages the befair session, serializing API calls to betfair into the required XML format and de-serializing and parsing the betfair responses back into Perl data structures.
-
 
 =head1 SYNOPSIS
 
@@ -63,25 +60,6 @@ Example
     else {
         print Dumper($betfair->getError);
     }
-
-
-=head1 TO DO
-
-=over
-
-=item *
-
-Enable use of Australian exchange server - currently this is not supported
-
-=item *
-
-Add remaining L<betfair API methods|http://bdp.betfair.com/docs/>
-
-=item *
-
-Add encryption to object attributes.
-
-=back
 
 =head1 NON API METHODS
 
@@ -113,7 +91,7 @@ sub new {
 
 =head2 getError
 
-Returns the error message from the betfair API response. Upon a successful call API the value returned by getError is usually 'OK'.
+Returns the error message from the betfair API response - this is useful when a request fails. After a successful call API the value returned by getError is 'OK'.
 
 Example
 
@@ -125,7 +103,6 @@ sub getError {
     my $self = shift;
     return  $self->{headerError} eq 'OK' ? $self->{bodyError} : $self->{headerError};
 }
-
 
 =head2 getXMLSent
 
@@ -188,7 +165,6 @@ username: string of your betfair username
 
 password: string of your betfair password
 
-
 =item *
 
 productID: integer that indicates the API product to be used (optional). This defaults to 82 (the free personal API). Provide this argument if using a commercial version of the betfair API.
@@ -219,8 +195,9 @@ sub login {
         locationId  => 0,
         ipAddress   => 0,
         vendorId    => 0,
+        exchangeId  => 3,
     };
-    return $self->_doRequest('login', 3, $params); 
+    return $self->_doRequest('login', $params); 
 }
 
 =head2 keepAlive
@@ -234,8 +211,8 @@ Example
 =cut
 
 sub keepAlive {
-    my ($self) = @_;
-    return $self->_doRequest('keepAlive', 3, {});
+    my $self = shift;
+    return $self->_doRequest('keepAlive', {exchangeId => 3});
 }
 
 =head2 logout
@@ -249,8 +226,8 @@ Example
 =cut
 
 sub logout {
-    my ($self) = @_;
-    if ($self->_doRequest('logout', 3, {})) {
+    my $self = shift;
+    if ($self->_doRequest('logout', {exchangeId => 3})) {
         # check body error message, different to header error
         my $self->{error} 
             = $self->{response}->{'soap:Body'}->{'n:logoutResponse'}->{'n:Result'}->{'errorCode'}->{'content'};
@@ -297,8 +274,9 @@ sub convertCurrency {
         fromCurrency        => ['string', 1],
         toCurrency          => ['string', 1],
     };
+    $args->{exchangeId} = 3;
     return 0 unless $self->_checkParams($checkParams, $args);
-    if ($self->_doRequest('convertCurrency', 3, $args) ) {
+    if ($self->_doRequest('convertCurrency', $args) ) {
         return { convertedAmount =>
                 $self->{response}->{'soap:Body'}->{'n:convertCurrencyResponse'}->{'n:Result'}->{'convertedAmount'}->{'content'}
         };
@@ -319,7 +297,7 @@ Example
 sub getActiveEventTypes {
     my $self = shift;
     my $active_event_types =[];
-    if ($self->_doRequest('getActiveEventTypes', 3, {}) ) {
+    if ($self->_doRequest('getActiveEventTypes', {exchangeId => 3}) ) {
         foreach (@{$self->{response}->{'soap:Body'}->{'n:getActiveEventTypesResponse'}->{'n:Result'}->{'eventTypeItems'}->{'n2:EventType'}}) {
             push(@{$active_event_types},{ 
                 name            => $_->{'name'}->{'content'},
@@ -346,7 +324,7 @@ Example
 sub getAllCurrencies {
     my $self = shift;
     my $currencies =[];
-    if ($self->_doRequest('getAllCurrencies', 3, {}) ) {
+    if ($self->_doRequest('getAllCurrencies', {exchangeId => 3}) ) {
         foreach (@{$self->{response}->{'soap:Body'}->{'n:getAllCurrenciesResponse'}->{'n:Result'}->{'currencyItems'}->{'n2:Currency'}}) {
             push(@{$currencies},{
                 currencyCode    => $_->{'currencyCode'}->{'content'},
@@ -371,7 +349,7 @@ Example
 sub getAllCurrenciesV2 {
     my $self = shift;
     my $currenciesV2 =[];
-    if ($self->_doRequest('getAllCurrenciesV2', 3, {}) ) {
+    if ($self->_doRequest('getAllCurrenciesV2', {exchangeId => 3}) ) {
         foreach (@{$self->{response}->{'soap:Body'}->{'n:getAllCurrenciesV2Response'}->{'n:Result'}->{'currencyItems'}->{'n2:CurrencyV2'}}) {
             push(@{$currenciesV2},{
                 currencyCode            => $_->{'currencyCode'}->{'content'},
@@ -398,7 +376,7 @@ Example
 
 sub getAllEventTypes {
     my $self = shift;
-    if ($self->_doRequest('getAllEventTypes', 3, {})) {
+    if ($self->_doRequest('getAllEventTypes', {exchangeId => 3})) {
         my $all_event_types = [];
         foreach (@{$self->{response}->{'soap:Body'}->{'n:getAllEventTypesResponse'}->{'n:Result'}->{'eventTypeItems'}->{'n2:EventType'} }) {
             push(@{$all_event_types},{
@@ -415,17 +393,27 @@ sub getAllEventTypes {
 
 =head2 getAllMarkets
 
-Returns an array of hashes of all markets or 0 on failure. See L<http://bdp.betfair.com/docs/GetAllMarkets.html> for details. Does not require any parameters.
+Returns an array of hashes of all markets or 0 on failure. See L<http://bdp.betfair.com/docs/GetAllMarkets.html> for details. Requires a hashref with the following parameters:
+
+=over
+
+=item *
+
+exchangeId : integer representing the exchange id to connect to, either 1 (UK and rest of the world) or 2 (Australia)
+
+=back
 
 Example
 
-    my $allMarkets = $betfair->getAllMarkets;
+    my $allMarkets = $betfair->getAllMarkets({exchangeId => 1});
 
 =cut
 
 sub getAllMarkets {
-    my $self = shift;
-    if ($self->_doRequest('getAllMarkets', 1, {})) {
+    my ($self, $args) = @_;
+    my $checkParams = {exchangeId => ['exchangeId', 1]};
+    return 0 unless $self->_checkParams($checkParams, $args);
+    if ($self->_doRequest('getAllMarkets', $args)) {
         my $all_markets = [];
         foreach (split /[^\\]:/, $self->{response}->{'soap:Body'}->{'n:getAllMarketsResponse'}->{'n:Result'}->{'marketData'}->{'content'}) {
             my @market = split /~/, $_;
@@ -463,19 +451,27 @@ Returns a hashref of betfair's bet response, including an array of all matches t
 
 betId - the betId integer of the bet to retrieve data about.
 
+=item *
+
+exchangeId : integer representing the exchange id to connect to, either 1 (UK and rest of the world) or 2 (Australia)
+
 =back
 
 Example
 
-    my $bet = $betfair->getBet({betId => 123456789});
+    my $bet = $betfair->getBet({betId       => 123456789
+                                exchangeId  => 1,
+                              });
 
 =cut
 
 sub getBet {
     my ($self, $args) = @_;
-    my $checkParams = { betId => ['int', 1] };
+    my $checkParams = { betId       => ['int', 1],
+                        exchangeId  => ['exchangeId', 1],
+    };
     return 0 unless $self->_checkParams($checkParams, $args);
-    if ($self->_doRequest('getBet', 1, $args)) {
+    if ($self->_doRequest('getBet', $args)) {
         my $response = $self->{response}->{'soap:Body'}->{'n:getBetResponse'}->{'n:Result'}->{bet};
         my $bet = {
             asianLineId     => $response->{asianLineId}->{content},
@@ -572,6 +568,10 @@ sortBetsBy : string of a valid BetsOrderByEnum types as defined by betfair. see 
 
 startRecord : integer of the index of the first record to retrieve. The index is zero-based so 0 would indicate the first record in the resultset
 
+=item *
+
+exchangeId : integer representing the exchange id to connect to, either 1 (UK and rest of the world) or 2 (Australia)
+
 =back
 
 Example
@@ -586,6 +586,7 @@ Example
                             recordCount         => 100,
                             sortBetsBy          => 'PLACED_DATE',
                             startRecord         => 0,
+                            exchangeId          => 1,
                             });
 
 =cut
@@ -602,7 +603,8 @@ sub getBetHistory {
         placedDateTo        => ['date', 1],
         placedDateFrom      => ['date', 1],
         marketTypesIncluded => ['arrayMarketTypeEnum', 1],
-        marketId            => ['int',0],
+        marketId            => ['int', 0],
+        exchangeId          => ['exchangeId', 1],
     };
     # eventTypeIds is not mandatory if betTypesIncluded is 'M' or 'U'
     $checkParams->{eventTypeIds}->[1] = 0 if grep{/$args->{betTypesIncluded}/} qw/M U/;
@@ -622,7 +624,7 @@ sub getBetHistory {
     delete $args->{marketTypesIncluded};
     $args->{marketTypesIncluded}->{'MarketTypeEnum'} = \@marketTypes;
 
-    if ($self->_doRequest('getBetHistory', 1, $args) ) {
+    if ($self->_doRequest('getBetHistory', $args) ) {
         my $response = $self->_forceArray(
                 $self->{response}->{'soap:Body'}->{'n:getBetHistoryResponse'}->{'n:Result'}->{'betHistoryItems'}->{'n2:Bet'});
         my $betHistory = [];
@@ -687,19 +689,27 @@ Returns a hashref of bet information. See L<getBetLite|http://bdp.betfair.com/do
 
 betId : integer representing the betfair id for the bet to retrieve data about.
 
+=item *
+
+exchangeId : integer representing the exchange id to connect to, either 1 (UK and rest of the world) or 2 (Australia)
+
 =back
 
 Example
 
-    my $betData = $betfair->getBetLite({betId => 123456789});
+    my $betData = $betfair->getBetLite({betId       => 123456789
+                                        exchangeId  => 2,
+                                       });
 
 =cut
 
 sub getBetLite {
     my ($self, $args) = @_;
-    my $checkParams = { betId => ['int', 1] };
+    my $checkParams = { betId       => ['int', 1], 
+                        exchangeId  => ['exchangeId', 1],
+    };
     return 0 unless $self->_checkParams($checkParams, $args);
-    if ($self->_doRequest('getBetLite', 1, $args)) {
+    if ($self->_doRequest('getBetLite', $args)) {
         my $response = $self->{response}->{'soap:Body'}->{'n:getBetLiteResponse'}->{'n:Result'}->{'betLite'};
         return {
             betCategoryType     => $response->{betCategoryType}->{content},
@@ -726,19 +736,27 @@ Returns an arrayref of hashrefs of matched bet information. See L<getBetMatchesL
 
 betId : integer representing the betfair id for the bet to retrieve data about.
 
+=item *
+
+exchangeId : integer representing the exchange id to connect to, either 1 (UK and rest of the world) or 2 (Australia)
+
 =back
 
 Example
 
-    my $betData = $betfair->getBetMatchesLite({betId => 123456789});
+    my $betData = $betfair->getBetMatchesLite({ betId       => 123456789
+                                                exchangeId  => 1,
+                                               });
 
 =cut
 
 sub getBetMatchesLite {
     my ($self, $args) = @_;
-    my $checkParams = { betId => ['int', 1] };
+    my $checkParams = { betId       => ['int', 1],
+                        exchangeId  => ['exchangeId', 0],
+    };
     return 0 unless $self->_checkParams($checkParams, $args);
-    if ($self->_doRequest('getBetMatchesLite', 1, $args)) {
+    if ($self->_doRequest('getBetMatchesLite', $args)) {
         my $response = $self->_forceArray($self->{response}->{'soap:Body'}->{'n:getBetMatchesLiteResponse'}->{'n:Result'}->{matchLites}->{'n2:MatchLite'});
         my $matchedBets = [];
         foreach (@{$response}) {
@@ -765,19 +783,33 @@ Returns a hashref of market data including an arrayhashref of individual selecti
 
 marketId : integer representing the betfair market id.
 
+=item *
+
+currencyCode : string representing the three letter ISO currency code. Only certain currencies are accepted by betfair (GBP, USD, EUR, NOK, SGD, SEK, AUD, CAD, HKD, DKK);
+
+=item *
+
+exchangeId : integer representing the exchange id to connect to, either 1 (UK and rest of the world) or 2 (Australia)
+
 =back
 
 Example
 
-    my $marketPriceData = $betfair->getCompleteMarketPricesCompressed({marketId => 123456789}); 
+    my $marketPriceData = $betfair->getCompleteMarketPricesCompressed({ marketId    => 123456789,
+                                                                        exchangeId  => 2,
+                                                                      }); 
 
 =cut
 
 sub getCompleteMarketPricesCompressed {
     my ($self, $args) = @_;
-    my $checkParams = { marketId => ['int', 1] };
+    my $checkParams = { 
+        marketId        => ['int', 1],
+        currencyCode    => ['currencyCode', 0],
+        exchangeId      => ['exchangeId', 1],
+    };
     return 0 unless $self->_checkParams($checkParams, $args);
-    if ($self->_doRequest('getCompleteMarketPricesCompressed', 1, $args)) {
+    if ($self->_doRequest('getCompleteMarketPricesCompressed', $args)) {
         my $response = $self->{response}->{'soap:Body'}->{'n:getCompleteMarketPricesCompressedResponse'}->{'n:Result'}->{'completeMarketPrices'}->{'content'};
         my @fields = split /:/, $response;
         #109799180~0~;name,timeRemoved,reductionFactor;
@@ -854,6 +886,10 @@ noTotalRecordCount : string of either true or false
 
 marketId : integer of the betfair market id for which current bets are required (optional)
 
+=item *
+
+exchangeId : integer representing the exchange id to connect to, either 1 (UK and rest of the world) or 2 (Australia)
+
 =back
 
 Example
@@ -865,6 +901,7 @@ Example
                             recordCount         => 100,
                             startRecord         => 0,
                             noTotalRecordCount  => 'true',
+                            exchangeId          => 1,
                             });
 
 =cut
@@ -879,9 +916,10 @@ sub getCurrentBets {
         startRecord         => ['int', 1],
         noTotalRecordCount  => ['boolean', 1],
         marketId            => ['int',0],
+        exchangeId          => ['exchangeId', 1],
     };
     return 0 unless $self->_checkParams($checkParams, $args);
-    if ($self->_doRequest('getCurrentBets', 1, $args) ) {
+    if ($self->_doRequest('getCurrentBets', $args) ) {
         my $response = $self->_forceArray(
                 $self->{response}->{'soap:Body'}->{'n:getCurrentBetsResponse'}->{'n:Result'}->{'bets'}->{'n2:Bet'});
         my $current_bets = [];
@@ -966,6 +1004,10 @@ noTotalRecordCount : string of either 'true' or 'false' to return a total record
 
 marketId : integer of the betfair market id for which current bets are required (optional)
 
+=item *
+
+exchangeId : integer representing the exchange id to connect to, either 1 (UK and rest of the world) or 2 (Australia)
+
 =back
 
 Example
@@ -976,6 +1018,7 @@ Example
                             recordCount         => 100,
                             startRecord         => 0,
                             noTotalRecordCount  => 'true',
+                            exchangeId          => 1,
                             });
 
 =cut
@@ -988,10 +1031,11 @@ sub getCurrentBetsLite {
         recordCount         => ['int', 1,],
         startRecord         => ['int', 1],
         noTotalRecordCount  => ['boolean', 1],
-        marketId            => ['int',0],
+        marketId            => ['int', 0],
+        exchangeId          => ['exchangeId', 1],
     };
     return 0 unless $self->_checkParams($checkParams, $args);
-    if ($self->_doRequest('getCurrentBetsLite', 1, $args) ) {
+    if ($self->_doRequest('getCurrentBetsLite', $args) ) {
         my $response = $self->_forceArray(
                 $self->{response}->{'soap:Body'}->{'n:getCurrentBetsLiteResponse'}->{'n:Result'}->{'betLites'}->{'n2:BetLite'});
         my $current_bets = [];
@@ -1030,12 +1074,17 @@ selectionId : integer representing the betfair selection id to return market pri
 
 asianLineId : integer representing the betfair asian line id of the market - only required if the market is an asian line market (optional).
 
+=item *
+
+exchangeId : integer representing the exchange id to connect to, either 1 (UK and rest of the world) or 2 (Australia)
+
 =back
 
 Example
 
     my $selectionPrices = $betfair->getDetailAvailableMktDepth({marketId    => 123456789,
                                                                 selectionId => 987654321,
+                                                                exchangeId  => 1,
                                                                });
 
 =cut
@@ -1045,9 +1094,10 @@ sub getDetailAvailableMktDepth {
     my $checkParams = { marketId    => ['int', 1], 
                         selectionId => ['int', 1],
                         asianLineId => ['int', 0],
+                        exchangeId  => ['exchangeId', 1],
     };
     return 0 unless $self->_checkParams($checkParams, $args);
-    if ($self->_doRequest('getDetailAvailableMktDepth', 1, $args)) {
+    if ($self->_doRequest('getDetailAvailableMktDepth', $args)) {
         my $response = $self->_forceArray(
                 $self->{response}->{'soap:Body'}->{'n:getDetailAvailableMktDepthResponse'}->{'n:Result'}->{'priceItems'}->{'n2:AvailabilityInfo'});
         my $marketPrices = [];
@@ -1088,7 +1138,8 @@ sub getEvents {
     my ($self, $args) = @_;
     my $checkParams = { eventParentId => ['int', 1] };
     return 0 unless $self->_checkParams($checkParams, $args);
-    if ($self->_doRequest('getEvents', 3, $args)) {
+    $args->{exchangeId} = 3;
+    if ($self->_doRequest('getEvents', $args)) {
         my $event_response = $self->_forceArray($self->{response}->{'soap:Body'}->{'n:getEventsResponse'}->{'n:Result'}->{'eventItems'}->{'n2:BFEvent'});
         my $events;
         foreach (@{$event_response}) {
@@ -1130,23 +1181,33 @@ sub getEvents {
 
 =head2 getInPlayMarkets
 
-Returns an arrayref of hashrefs of market data or 0 on failure. See L<getInPlayMarkets|http://bdp.betfair.com/docs/GetInPlayTodayMarkets.html> for details. Does not require any parameters.
+Returns an arrayref of hashrefs of market data or 0 on failure. See L<getInPlayMarkets|http://bdp.betfair.com/docs/GetInPlayTodayMarkets.html> for details. Requires the following parameter:
+
+=over
+
+=item *
+
+exchangeId : integer representing the exchange id to connect to, either 1 (UK and rest of the world) or 2 (Australia)
+
+=back
 
 Example
 
-    my $inPlayMarkets = $betfair->getInPlayMarkets;
+    my $inPlayMarkets = $betfair->getInPlayMarkets({exchangeId => 1});
 
 =cut
 
 sub getInPlayMarkets {
-    my $self = shift;
-    if ($self->_doRequest('getInPlayMarkets', 1, {}) ) {
+    my ($self, $args) = @_;
+    my $checkParams = { exchangeId => ['exchangeId', 1] };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    if ($self->_doRequest('getInPlayMarkets', $args) ) {
         my $response = $self->{response}->{'soap:Body'}->{'n:getInPlayMarketsResponse'}->{'n:Result'}->{'marketData'}->{content};
-        my $markets = [];
+        my @markets;
         foreach (split /:/, $response) {
             next unless $_;
             my @data = split /~/, $_;
-            push @{$markets}, {
+            push(@markets, {
                 marketId            => $data[0],
                 marketName          => $data[1],
                 marketType          => $data[2],
@@ -1163,10 +1224,10 @@ sub getInPlayMarkets {
                 totalAmountMatched  => $data[13],
                 bspMarket           => $data[14],
                 turningInPlay       => $data[15],
-            };
+            });
 
         }
-        return 1;
+        return \@markets;
     } 
     return 0;
 }
@@ -1181,19 +1242,27 @@ Returns a hash of market data or 0 on failure. See L<http://bdp.betfair.com/docs
 
 marketId : integer which is the betfair id of the market
 
+=item *
+
+exchangeId : integer representing the exchange id to connect to, either 1 (UK and rest of the world) or 2 (Australia)
+
 =back
 
 Example
 
-    my $marketData = $betfair->getMarket({marketId => 108690258});
+    my $marketData = $betfair->getMarket({  marketId    => 108690258,
+                                            exchangeId  => 2,
+                                         });
 
 =cut
 
 sub getMarket {
     my ($self, $args) = @_;
-    my $checkParams = { marketId => ['int', 1] };
+    my $checkParams = { marketId    => ['int', 1],
+                        exchangeId  => ['exchangeId', 1],
+    };
     return 0 unless $self->_checkParams($checkParams, $args);
-    if ($self->_doRequest('getMarket', 1, $args) ) {
+    if ($self->_doRequest('getMarket', $args) ) {
         my $response = $self->{response}->{'soap:Body'}->{'n:getMarketResponse'}->{'n:Result'}->{'market'};
         my $runners_list = $self->_forceArray($response->{'runners'}->{'n2:Runner'});
         my @parsed_runners = ();
@@ -1219,7 +1288,7 @@ sub getMarket {
 
 =head2 getMarketInfo
 
-Returns a hash of market data or 0 on failure. See L<getMarketInfo|http://bdp.betfair.com/docs/GetMarketInfo.html> for details. Requires:
+Returns a hash of market data or 0 on failure. See L<getMarketInfo|http://bdp.betfair.com/docs/GetMarketInfo.html> for details. Requires a hashref with the following parameters:
 
 =over
 
@@ -1227,19 +1296,27 @@ Returns a hash of market data or 0 on failure. See L<getMarketInfo|http://bdp.be
 
 marketId : integer which is the betfair id of the market
 
+=item *
+
+exchangeId : integer representing the exchange id to connect to, either 1 (UK and rest of the world) or 2 (Australia)
+
 =back
 
 Example
 
-    my $marketData = $betfair->getMarketInfo({marketId => 108690258});
+    my $marketData = $betfair->getMarketInfo({  marketId    => 108690258,
+                                                exchangeId  => 1,
+                                             });
 
 =cut
 
 sub getMarketInfo {
     my ($self, $args) = @_;
-    my $checkParams = { marketId => ['int', 1] };
+    my $checkParams = { marketId    => ['int', 1],
+                        exchangeId  => ['exchangeId', 1],
+    };
     return 0 unless $self->_checkParams($checkParams, $args);
-    if ($self->_doRequest('getMarketInfo', 1, $args) ) {
+    if ($self->_doRequest('getMarketInfo', $args) ) {
         my $response = $self->{response}->{'soap:Body'}->{'n:getMarketInfoResponse'}->{'n:Result'}->{'marketLite'};
         return {
             delay               => $response->{'delay'}->{'content'},
@@ -1263,19 +1340,33 @@ Returns a hashref of market data or 0 on failure. See L<getMarketPrices|http://b
 
 marketId : integer which is the betfair id of the market
 
+=item *
+
+currencyCode : string representing the three letter ISO currency code. Only certain currencies are accepted by betfair (GBP, USD, EUR, NOK, SGD, SEK, AUD, CAD, HKD, DKK);
+
+=item *
+
+exchangeId : integer representing the exchange id to connect to, either 1 (UK and rest of the world) or 2 (Australia)
+
 =back
 
 Example
 
-    my $marketPrices = $betfair->getMarketPrices({marketId => 108690258});
+    my $marketPrices = $betfair->getMarketPrices({  marketId    => 108690258
+                                                    exchangeId  => 2,
+                                                 });
 
 =cut
 
 sub getMarketPrices {
     my ($self, $args) = @_;
-    my $checkParams = { marketId => ['int', 1] };
+    my $checkParams = { 
+        marketId        => ['int', 1],
+        currencyCode    => ['currencyCode', 0],
+        exchangeId      => ['exchangeId', 1],
+    };
     return 0 unless $self->_checkParams($checkParams, $args);
-    if ($self->_doRequest('getMarketPrices', 1, $args) ) {
+    if ($self->_doRequest('getMarketPrices', $args) ) {
         my $response = $self->{response}->{'soap:Body'}->{'n:getMarketPricesResponse'}->{'n:Result'}->{'marketPrices'};
         my $runners_list = $self->_forceArray($response->{'runnerPrices'}->{'n2:RunnerPrices'});
         my @parsed_runners = ();
@@ -1344,6 +1435,14 @@ Returns a hashref of market data including an arrayhashref of individual selecti
 
 marketId : integer representing the betfair market id.
 
+=item *
+
+currencyCode : string representing the three letter ISO currency code. Only certain currencies are accepted by betfair (GBP, USD, EUR, NOK, SGD, SEK, AUD, CAD, HKD, DKK);
+
+=item *
+
+exchangeId : integer representing the exchange id to connect to, either 1 (UK and rest of the world) or 2 (Australia)
+
 =back
 
 Example
@@ -1354,9 +1453,12 @@ Example
 
 sub getMarketPricesCompressed {
     my ($self, $args) = @_;
-    my $checkParams = { marketId => ['int', 1] };
+    my $checkParams = { marketId    => ['int', 1],
+                        currencyCode=> ['currencyCode', 0],
+                        exchangeId  => ['exchangeId', 1],
+    };
     return 0 unless $self->_checkParams($checkParams, $args);
-    if ($self->_doRequest('getMarketPricesCompressed', 1, $args)) {
+    if ($self->_doRequest('getMarketPricesCompressed', $args)) {
         my $response = $self->{response}->{'soap:Body'}->{'n:getMarketPricesCompressedResponse'}->{'n:Result'}->{'marketPrices'}->{'content'};
         my @fields = split /:/, $response;
         my @marketData = split /~/, shift @fields;
@@ -1462,6 +1564,10 @@ marketId : integer of the betfair market id for which current bets are required 
 
 betIds : an array of betIds (optional). If included, betStatus must be 'MU'.
 
+=item *
+
+exchangeId : integer representing the exchange id to connect to, either 1 (UK and rest of the world) or 2 (Australia)
+
 =back
 
 Example
@@ -1474,6 +1580,7 @@ Example
                             noTotalRecordCount  => 'true',
                             sortOrder           => 'ASC',
                             marketId            => 123456789,
+                            exchangeId          => 1,
                  });
 
 =cut
@@ -1488,6 +1595,7 @@ sub getMUBets {
         marketId            => ['int', 0],
         sortOrder           => ['sortOrderEnum', 1],
         betIds              => ['arrayInt', 0],
+        exchangeId          => ['exchangeId', 1],
     };
     return 0 unless $self->_checkParams($checkParams, $args);
     if (exists $args->{betIds}) {
@@ -1495,7 +1603,7 @@ sub getMUBets {
         $args->{betIds} = {betId => \@betIds};
     }
     my $mu_bets = [];
-    if ($self->_doRequest('getMUBets', 1, $args)) {
+    if ($self->_doRequest('getMUBets', $args)) {
         my $response = $self->_forceArray(
             $self->{response}->{'soap:Body'}->{'n:getMUBetsResponse'}->{'n:Result'}->{'bets'}->{'n2:MUBet'});
         foreach (@{$response} ) {
@@ -1521,7 +1629,6 @@ sub getMUBets {
     } 
     return 0;
 }
-
 
 =head2 getMUBetsLite
 
@@ -1565,6 +1672,10 @@ sortOrder : string of the betfair sortOrder enumerated type (either 'ASC' or 'DE
 
 betIds : an array of betIds (optional). If included, betStatus must be 'MU'.
 
+=item *
+
+exchangeId : integer representing the exchange id to connect to, either 1 (UK and rest of the world) or 2 (Australia)
+
 =back
 
 Example
@@ -1578,6 +1689,7 @@ Example
                             matchedSince        => '2013-06-01T00:00:00.000Z',
                             sortOrder           => 'ASC',
                             marketId            => 123456789,
+                            exchangeId          => 1,
                  });
 
 =cut
@@ -1594,6 +1706,7 @@ sub getMUBetsLite {
         marketId            => ['int', 0],
         sortOrder           => ['sortOrderEnum', 1],
         betIds              => ['arrayInt', 0],
+        exchangeId          => ['exchangeId', 1],
     };
     return 0 unless $self->_checkParams($checkParams, $args);
     if (exists $args->{betIds}) {
@@ -1601,7 +1714,7 @@ sub getMUBetsLite {
         $args->{betIds} = {betId => \@betIds};
     }
     my @muBetsLite;
-    if ($self->_doRequest('getMUBetsLite', 1, $args)) {
+    if ($self->_doRequest('getMUBetsLite', $args)) {
         my $response = $self->_forceArray(
             $self->{response}->{'soap:Body'}->{'n:getMUBetsLiteResponse'}->{'n:Result'}->{'betLites'}->{'n2:MUBetLite'});
         foreach (@{$response} ) {
@@ -1640,12 +1753,21 @@ selectionId : integer representing the betfair selection id of the selection to 
 
 asianLineId : integer representing the betfair asian line id - this is optional unless the request is for an asian line market.
 
+=item *
+
+currencyCode : string representing the three letter ISO currency code. Only certain currencies are accepted by betfair (GBP, USD, EUR, NOK, SGD, SEK, AUD, CAD, HKD, DKK);
+
+=item *
+
+exchangeId : integer representing the exchange id to connect to, either 1 (UK and rest of the world) or 2 (Australia)
+
 =back
 
 Example
 
     my $marketVolume = $betfair->getMarketTradedVolume({marketId    => 923456791,
                                                         selectionId => 30571,
+                                                        exchangeId  => 2,
                                                        });
 
 =cut
@@ -1655,9 +1777,11 @@ sub getMarketTradedVolume {
     my $checkParams = { marketId    => ['int', 1], 
                         asianLineId => ['int', 0],
                         selectionId => ['int', 1],
+                        currencyCode=> ['currencyCode', 0],
+                        exchangeId  => ['exchangeId', 1],
     };
     return 0 unless $self->_checkParams($checkParams, $args);
-    if ($self->_doRequest('getMarketTradedVolume', 1, $args)) {
+    if ($self->_doRequest('getMarketTradedVolume', $args)) {
         my $response = $self->_forceArray(
                 $self->{response}->{'soap:Body'}->{'n:getMarketTradedVolumeResponse'}->{'n:Result'}->{'priceItems'}->{'n2:VolumeInfo'});
         my $tradedVolume = [];
@@ -1685,19 +1809,33 @@ Returns an arrayref of selections with their total matched amounts plus an array
 
 marketId : integer representing the betfair market id to return the market traded volume for.
 
+=item *
+
+currencyCode : string representing the three letter ISO currency code. Only certain currencies are accepted by betfair (GBP, USD, EUR, NOK, SGD, SEK, AUD, CAD, HKD, DKK);
+
+=item *
+
+exchangeId : integer representing the exchange id to connect to, either 1 (UK and rest of the world) or 2 (Australia)
+
 =back
 
 Example
 
-    my $marketVolume = $betfair->getMarketTradedVolumeCompressed({marketId => 923456791});
+    my $marketVolume = $betfair->getMarketTradedVolumeCompressed({  marketId    => 923456791,
+                                                                    exchangeId  => 2,
+                                                                 });
 
 =cut
 
 sub getMarketTradedVolumeCompressed {
     my ($self, $args) = @_;
-    my $checkParams = { marketId => ['int', 1] };
+    my $checkParams = { 
+        marketId => ['int', 1],
+        currencyCode    => ['currencyCode', 0],
+        exchangeId      => ['exchangeId', 1],
+    };
     return 0 unless $self->_checkParams($checkParams, $args);
-    if ($self->_doRequest('getMarketTradedVolumeCompressed', 1, $args)) {
+    if ($self->_doRequest('getMarketTradedVolumeCompressed', $args)) {
         my $response = $self->{response}->{'soap:Body'}->{'n:getMarketTradedVolumeCompressedResponse'}->{'n:Result'}->{'tradedVolume'}->{'content'};
         my $marketTradedVolume = { marketId => $args->{marketId} }; 
         foreach my $selection (split /:/, $response) {
@@ -1727,11 +1865,227 @@ sub getMarketTradedVolumeCompressed {
     return 0;
 }
 
+=head2 getPrivateMarkets
+
+This method is not available on the free betfair API.
+
+Returns an arrayref of private markets - see L<getPrivateMarkets|http://bdp.betfair.com/docs/GetPrivateMarket.html> for details. Requires a hashref with the following arguments:
+
+=over
+
+=item *
+
+eventTypeId : integer representing the betfair id of the event type to return private markets for.
+
+=item *
+
+marketType : string of the betfair marketType enum see L<marketTypeEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1020360i1020360>.
+
+=item *
+
+exchangeId : integer representing the exchange id to connect to, either 1 (UK and rest of the world) or 2 (Australia)
+
+=back
+
+Example
+
+    my $privateMarkets = $betfair->getPrivateMarkets({  eventTypeId => 1,
+                                                        marketType  => 'O',
+                                                        exchangeId  => 1,
+                                                    });
+
+=cut
+
+sub getPrivateMarkets {
+    my ($self, $args) = @_;
+    my $checkParams = { eventTypeId => ['int', 1],
+                        marketType  => ['marketTypeEnum', 1],
+                        exchangeId  => ['exchangeId', 1],
+    };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    if ($self->_doRequest('getPrivateMarkets', $args)) {
+        my $response = $self->_forceArray(
+            $self->{response}->{'soap:Body'}->{'n:getPrivateMarketsResponse'}->{'n:Result'}->{'privateMarkets'}->{'privateMarket'});
+        my @privateMarkets;
+        foreach (@{$response}) {
+            push(@privateMarkets, {
+                        name            => $_->{name}->{content},
+                        marketId        => $_->{marketId}->{content},
+                        menuPath        => $_->{menuPath}->{content},
+                        eventHierarchy  => $_->{eventHierarchy}->{content},
+                    });
+        }
+        return 1;
+    }
+    return 0;
+}
+
+=head2 getSilks
+
+This method is not available on the free betfair API.
+
+Returns an arrayref of market racing silks data or 0 on failure. See L<getSilksV2|http://bdp.betfair.com/docs/GetSilks.html> for details. Requires the following parameters:
+
+=over
+
+=item *
+
+markets : an arrayref of integers representing betfair market ids
+
+=item *
+
+exchangeId : integer representing the exchange id to connect to, either 1 (UK and rest of the world) or 2 (Australia)
+
+=back
+
+Example
+
+    my $silks = $betfair->getSilksV2({  markets     => [123456,9273649],
+                                        exchangeId  => 1, 
+                                     });
+
+=cut
+
+sub getSilks {
+    my ($self, $args) = @_;
+    my $checkParams = {
+        markets     => ['arrayInt', 1],
+        exchangeId  => ['exchangeId', 1],
+    };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    # adjust args into betfair api required structure
+    my $params = {  markets     => { int => $args->{markets} },
+                    exchangeId  => $args->{exchangeId},
+    };
+    if ($self->_doRequest('getSilks', $params)) {
+        my $silks = [];
+        my $response = $self->_forceArray(
+            $self->{response}->{'soap:Body'}->{'n:getSilksResponse'}->{'n:Result'}->{'marketDisplayDetails'}->{'n2:MarketDisplayDetail'});
+        foreach (@$response) {
+            my $market = $_->{marketId}->{content};
+            next unless $market;
+            my $runners = $self->_forceArray($_->{racingSilks}->{'n2:RacingSilk'}); 
+            my @racingSilks;
+            foreach (@$runners) {
+                    push(@racingSilks, {
+                        selectionId      => $_->{selectionId}->{content},
+                        silksURL         => 'http://content-cache.betfair.com/feeds_images/Horses/SilkColours/' . $_->{silksURL}->{content},
+                        silksText        => $_->{silksText}->{content},
+                        trainerName      => $_->{trainerName}->{content},
+                        ageWeight        => $_->{ageWeight}->{content},
+                        form             => $_->{form}->{content},
+                        daysSinceLastRun => $_->{daysSince}->{content},
+                        jockeyClaim      => $_->{jockeyClaim}->{content},
+                        wearing          => $_->{wearing}->{content},
+                        saddleClothNumber=> $_->{saddleCloth}->{content},
+                        stallDraw        => $_->{stallDraw}->{content},
+                    });
+            }
+            push(@$silks, {
+                        marketId    => $market,
+                        runners     => \@racingSilks,
+            });
+        }
+        return $silks;
+    } 
+    return 0; 
+}
+
+=head2 getSilksV2
+
+This method is not available on the free betfair API.
+
+Returns an arrayref of market racing silks data or 0 on failure. See L<getSilksV2|http://bdp.betfair.com/docs/GetSilks.html> for details. Requires the following parameters:
+
+=over
+
+=item *
+
+markets : an arrayref of integers representing betfair market ids
+
+=item *
+
+exchangeId : integer representing the exchange id to connect to, either 1 (UK and rest of the world) or 2 (Australia)
+
+=back
+
+Example
+
+    my $silks = $betfair->getSilksV2({  markets     => [123456,9273649],
+                                        exchangeId  => 1, 
+                                     });
+
+=cut
+
+sub getSilksV2 {
+    my ($self, $args) = @_;
+    my $checkParams = {
+        markets     => ['arrayInt', 1],
+        exchangeId  => ['exchangeId', 1],
+    };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    # adjust args into betfair api required structure
+    my $params = {  markets     => { int => $args->{markets} },
+                    exchangeId  => $args->{exchangeId},
+    };
+    if ($self->_doRequest('getSilksV2', $params)) {
+        my $silks = [];
+        my $response = $self->_forceArray(
+            $self->{response}->{'soap:Body'}->{'n:getSilksV2Response'}->{'n:Result'}->{'marketDisplayDetails'}->{'n2:MarketDisplayDetail'});
+        foreach (@$response) {
+            my $market = $_->{marketId}->{content};
+            next unless $market;
+            my $runners = $self->_forceArray($_->{racingSilks}->{'n2:RacingSilk'}); 
+            my @racingSilks;
+            foreach (@$runners) {
+                    push(@racingSilks, {
+                        selectionId             => $_->{selectionId}->{content},
+                        silksURL                => 'http://content-cache.betfair.com/feeds_images/Horses/SilkColours/' . $_->{silksURL}->{content},
+                        silksText               => $_->{silksText}->{content},
+                        trainerName             => $_->{trainerName}->{content},
+                        ageWeight               => $_->{ageWeight}->{content},
+                        form                    => $_->{form}->{content},
+                        daysSinceLastRun        => $_->{daysSince}->{content},
+                        jockeyClaim             => $_->{jockeyClaim}->{content},
+                        wearing                 => $_->{wearing}->{content},
+                        saddleClothNumber       => $_->{saddleCloth}->{content},
+                        stallDraw               => $_->{stallDraw}->{content},
+                        ownerName               => $_->{ownerName}->{content},
+                        jockeyName              => $_->{jockeyName}->{content},
+                        colour                  => $_->{colour}->{content},
+                        sex                     => $_->{sex}->{content},
+                        forecastPriceNumerator  => $_->{forecastPriceNumerator}->{content},
+                        forecastPriceDenominator=> $_->{forecastPriceDenominator}->{content},
+                        officialRating          => $_->{officialRating}->{content},
+                        sire                    => {name    => $_->{sire}->{name}->{content},
+                                                    bred    => $_->{sire}->{bred}->{content},
+                                                    yearBorn=> $_->{sire}->{yearBorn}->{content},
+                                                   },
+                        dam                     => {name    => $_->{dam}->{name}->{content},
+                                                    bred    => $_->{dam}->{bred}->{content},
+                                                    yearBorn=> $_->{dam}->{yearBorn}->{content},
+                                                   },
+                        damSire                 => {name    => $_->{damSire}->{name}->{content},
+                                                    bred    => $_->{damSire}->{bred}->{content},
+                                                    yearBorn=> $_->{damSire}->{yearBorn}->{content},
+                                                   },
+                    });
+            }
+            push(@$silks, {
+                        marketId    => $market,
+                        runners     => \@racingSilks,
+            });
+        }
+        return $silks;
+    } 
+    return 0; 
+}
+
 =head1 BET PLACEMENT API METHODS
 
 =head2 cancelBets
 
-Cancels up to 40 unmatched and active bets on betfair. Returns an arrayref of hashes of cancelled bets. See L<http://bdp.betfair.com/docs/CancelBets.html> for details. Requires:
+Cancels up to 40 unmatched and active bets on betfair. Returns an arrayref of hashes of cancelled bets. See L<cancelBets|http://bdp.betfair.com/docs/CancelBets.html> for details. Requires a hashref with the following parameters:
 
 =over
 
@@ -1739,28 +2093,33 @@ Cancels up to 40 unmatched and active bets on betfair. Returns an arrayref of ha
 
 betIds : an arrayref of integers of betIds that should be cancelled, up to 40 betIds are permitted by betfair.
 
+=item *
+
+exchangeId : integer representing the exchange id to connect to, either 1 (UK and rest of the world) or 2 (Australia)
+
 =back
 
 Example
 
-    my $cancelledBetsResults = $betfair->cancelBets({betIds => [123456789, 987654321]});
+    my $cancelledBetsResults = $betfair->cancelBets({betIds     => [123456789, 987654321]
+                                                     exchangeId => 2,   
+                                                    });
 
 =cut
 
 sub cancelBets {
     my ($self, $args) = @_;
     my $checkParams = {
-        betIds => ['arrayInt', 1],
+        betIds      => ['arrayInt', 1],
+        exchangeId  => ['exchangeId', 1],
     };
+    return 0 unless $self->_checkParams($checkParams, $args);
     # adjust args into betfair api required structure
-    my $params = { bets => {
-                            CancelBets => {
-                                            betId => $args->{betIds},
-                            },
-                   },
+    my $params = { bets       => { CancelBets => {betId => $args->{betIds}} },
+                   exchangeId => $args->{exchangeID},
     };
     my $cancelled_bets = [];
-    if ($self->_doRequest('cancelBets', 1, $params)) {
+    if ($self->_doRequest('cancelBets', $params)) {
         my $response = $self->_forceArray( 
             $self->{response}->{'soap:Body'}->{'n:cancelBetsResponse'}->{'n:Result'}->{'betResults'}->{'n2:CancelBetsResult'});
         foreach (@{$response} ) {
@@ -1784,7 +2143,7 @@ sub cancelBets {
 
 =head2 cancelBetsByMarket
 
-Receives an arrayref of marketIds and cancels all unmatched bets on those markets. Returns an arrayref of hashrefs of market ids and results. See L<cancelBetsByMarket|http://bdp.betfair.com/docs/CancelBetsByMarket.html> for details. Requires:
+Receives an arrayref of marketIds and cancels all unmatched bets on those markets. Returns an arrayref of hashrefs of market ids and results. See L<cancelBetsByMarket|http://bdp.betfair.com/docs/CancelBetsByMarket.html> for details. Requires a hashref with the following parameters:
 
 =over
 
@@ -1792,22 +2151,33 @@ Receives an arrayref of marketIds and cancels all unmatched bets on those market
 
 markets : arrayref of integers representing market ids.
 
+=item *
+
+exchangeId : integer representing the exchange id to connect to, either 1 (UK and rest of the world) or 2 (Australia)
+
 =back
+
+Example
+
+    my $cancelledBets = $betfair->cancelBetsByMarket({markets       => [123456789, 432596611],
+                                                      exchangeId    => 1,
+                                                     });
 
 =cut
 
 sub cancelBetsByMarket {
     my ($self, $args) = @_;
     my $checkParams = {
-        markets => ['arrayInt', 1],
+        markets     => ['arrayInt', 1],
+        exchangeId  => ['exchangeId', 1],
     };
+    return 0 unless $self->_checkParams($checkParams, $args);
     # adjust args into betfair api required structure
-    my $params = { markets  => {
-                            int => $args->{markets},
-                   },
+    my $params = {  markets     => { int => $args->{markets} },
+                    exchangeId  => $args->{exchangeId},
     };
     my $cancelled_bets = [];
-    if ($self->_doRequest('cancelBetsByMarket', 1, $params)) {
+    if ($self->_doRequest('cancelBetsByMarket', $params)) {
         my $response = $self->_forceArray( 
             $self->{response}->{'soap:Body'}->{'n:cancelBetsByMarketResponse'}->{'n:Result'}->{'n2:CancelBetsByMarketResult'});
         foreach (@{$response} ) {
@@ -1872,30 +2242,39 @@ size : number for the stake amount for this bet.
 
 =back
 
+=item *
+
+exchangeId : integer representing the exchange id to connect to, either 1 (UK and rest of the world) or 2 (Australia)
+
 =back
 
 Example
 
-    # place one bet to back selection 99 on market 123456789 at 5-to-1 for 10 
     $myBetPlacedResults = $betfair->placeBets({
-                                        bets => [{ 
-                                                asianLineId         => 0,
-                                                betCategoryType     => 'E',
-                                                betPersistenceType  => 'NONE',
-                                                betType             => 'B',
-                                                bspLiability        => 2,
-                                                marketId            => 123456789,
-                                                price               => 5,
-                                                selectionId         => 99,
-                                                size                => 10,
-                                            },
-                                        ],
+                                        bets        => [{   asianLineId         => 0,
+                                                            betCategoryType     => 'E',
+                                                            betPersistenceType  => 'NONE',
+                                                            betType             => 'B',
+                                                            bspLiability        => 2,
+                                                            marketId            => 123456789,
+                                                            price               => 5,
+                                                            selectionId         => 99,
+                                                            size                => 10,
+                                                        }],
+                                         exchangeId => 1,
                                     });
 
 =cut
 
 sub placeBets {
     my ($self, $args) = @_;
+    # handle exchange id separately
+    if (exists $args->{exchangeId}) {
+        return 0 unless $self->_checkParams({exchangeId => ['exchangeId', 1]}, {exchangeId => $args->{exchangeId}});
+    }
+    else {
+        return 0;
+    }
     my $checkParams = { 
         asianLineId         => ['int', 1],
         betCategoryType     => ['betCategoryTypeEnum', 1],
@@ -1911,11 +2290,10 @@ sub placeBets {
         return 0 unless $self->_checkParams($checkParams, $_);
     }
     # adjust args into betfair api required structure
-    my $params = { bets => {
-                            PlaceBets =>  $args->{bets},
-                   },
+    my $params = {  bets        => { PlaceBets =>  $args->{bets} },
+                    exchangeId  => $args->{exchangeId},
     };
-    if ($self->_doRequest('placeBets', 1, $params) ) {
+    if ($self->_doRequest('placeBets', $params)) {
         my $response = $self->_forceArray($self->{response}->{'soap:Body'}->{'n:placeBetsResponse'}->{'n:Result'}->{'betResults'}->{'n2:PlaceBetsResult'});
         my $placed_bets = [];
         foreach (@{$response}) {
@@ -1974,21 +2352,24 @@ oldSize : number for the old size of the bet
 
 =back
 
-=back
+=item *
 
+exchangeId : integer representing the exchange id to connect to, either 1 (UK and rest of the world) or 2 (Australia)
+
+=back
 
 Example
 
     my $updateBetDetails = $betfair->updateBets({
-                                        bets => [{
-                                                betId                   => 12345,
-                                                newBetPersistenceType   => 'NONE',
-                                                newPrice                => 5,
-                                                newSize                 => 10,
-                                                oldBetPersistenceType   => 'NONE',
-                                                oldPrice                => 2,
-                                                oldSize                 => 10,
-                                        }],
+                                        bets        => [{betId                   => 12345,
+                                                         newBetPersistenceType   => 'NONE',
+                                                         newPrice                => 5,
+                                                         newSize                 => 10,
+                                                         oldBetPersistenceType   => 'NONE',
+                                                         oldPrice                => 2,
+                                                         oldSize                 => 10,
+                                                        }],
+                                        exchangeId  => 1,
                                     });
 
 
@@ -1996,6 +2377,13 @@ Example
 
 sub updateBets {
     my ($self, $args) = @_;
+    # handle exchange id separately
+    if (exists $args->{exchangeId}) {
+        return 0 unless $self->_checkParams({exchangeId => ['exchangeId', 1]}, {exchangeId => $args->{exchangeId}});
+    }
+    else {
+        return 0;
+    }
     my $checkParams = { 
         betId                   => ['int', 1],
         newBetPersistenceType   => ['betPersistenceTypeEnum', 1],
@@ -2009,12 +2397,11 @@ sub updateBets {
         return 0 unless $self->_checkParams($checkParams, $_);
     }
     my $params = {
-        bets => {
-            UpdateBets => $args->{bets},
-        },
+        bets        => { UpdateBets => $args->{bets} },
+        exchangeId  => $args->{exchangeId},
     };
     my $updated_bets = [];
-    if ($self->_doRequest('updateBets', 1, $params)) {
+    if ($self->_doRequest('updateBets', $params)) {
         my $response = $self->_forceArray($self->{response}->{'soap:Body'}->{'n:updateBetsResponse'}->{'n:Result'}->{'betResults'}->{'n2:UpdateBetsResult'});
         foreach (@{$response}) {
             push @{$updated_bets}, {
@@ -2156,8 +2543,56 @@ sub addPaymentCard {
 
     };
     return 0 unless $self->_checkParams($checkParams, $args);
-    if ($self->_doRequest('addPaymentCard', 3, $args) ) {
+    $args->{exchangeId} = 3;
+    if ($self->_doRequest('addPaymentCard', $args) ) {
         return  $self->_addPaymentCardLine([], $self->{response}->{'soap:Body'}->{'n:addPaymentCardResponse'}->{'n:Result'}->{'n2:PaymentCard'});
+    }
+    return 0;
+}
+
+=head2 deletePaymentCard
+
+Deletes a registered payment card from your betfair account. See L<http://bdp.betfair.com/docs/deletePaymentCard.html> for further details. Returns the betfair response as a hashref or 0 on failure. Requires:
+
+=over
+
+=item *
+
+nickName : string of the card nickname to be deleted (must be less than 9 characters)
+
+=item *
+
+password : string of the betfair account password
+
+=back
+
+Example
+
+    my $deleteCardResponse = $betfair->deletePaymentCard({
+                                            nickName  => 'checking',
+                                            password  => 'password123',
+                                    });
+
+=cut
+
+sub deletePaymentCard {
+    my ($self, $args) = @_;
+    my $checkParams = {
+         nickName   => ['string9', 1],
+         password   => ['password', 1],
+    };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    $args->{exchangeId} = 3;
+    if ($self->_doRequest('deletePaymentCard', $args)) {
+        my $response = $self->{response}->{'soap:Body'}->{'n:deletePaymentCardResponse'}->{'n:Result'};
+        return  {
+            nickName        => $response->{nickName}->{content},
+            billingName     => $response->{billingName}->{content},
+            cardShortNumber => $response->{cardShortNumber}->{content},
+            cardType        => $response->{cardType}->{content},
+            issuingCountry  => $response->{issuingCountry}->{content},
+            expiryDate      => $response->{expiryDate}->{content},
+        };
     }
     return 0;
 }
@@ -2188,7 +2623,6 @@ password : string of the betfair account password
 
 Example
 
-    # deposit 10 in my account
     my $depositResponse = $betfair->depositFromPaymentCard({
                                             amount          => 10,
                                             cardIdentifier  => 'checking',
@@ -2207,16 +2641,103 @@ sub depositFromPaymentCard {
          password       => ['password', 1],
     };
     return 0 unless $self->_checkParams($checkParams, $args);
-    if ($self->_doRequest('depositFromPaymentCard', 3, $args)) {
+    $args->{exchangeId} = 3;
+    if ($self->_doRequest('depositFromPaymentCard', $args)) {
         my $deposit_response = $self->{response}->{'soap:Body'}->{'n:depositFromPaymentCardResponse'}->{'n:Result'};
         return  {
             fee                 => $deposit_response->{'fee'}->{'content'},
-            transaction_id      => $deposit_response->{'transactionId'}->{'content'},
-            min_amount          => $deposit_response->{'minAmount'}->{'content'},
-            error_code          => $deposit_response->{'errorCode'}->{'content'},
-            minor_error_code    => $deposit_response->{'minorErrorCode'}->{'content'},
-            max_amount          => $deposit_response->{'maxAmount'}->{'content'},
-            net_amount          => $deposit_response->{'netAmount'}->{'content'},
+            transactionId      => $deposit_response->{'transactionId'}->{'content'},
+            minAmount          => $deposit_response->{'minAmount'}->{'content'},
+            errorCode          => $deposit_response->{'errorCode'}->{'content'},
+            minorErrorCode    => $deposit_response->{'minorErrorCode'}->{'content'},
+            maxAmount          => $deposit_response->{'maxAmount'}->{'content'},
+            netAmount          => $deposit_response->{'netAmount'}->{'content'},
+        };
+    }
+    return 0;
+}
+
+=head2 forgotPassword
+
+NB. This service is largely redundant as it requires an authenticated session to work, however it is included for the sake of completeness.
+
+Resets the betfair account password via a 2 stage process. See L<http://bdp.betfair.com/docs/forgotPassword.html> and the example below for details. Returns the betfair response as a hashref for stage 1, 1 on a successful passwprd reset or 0 on failure. Note that this service can be difficult to succeed with - user the getError method to inspect the response message from betfair. Requires:
+
+=over
+
+=item *
+
+username : string of the betfair username for the account to reset the password for
+
+=item *
+
+emailAddress : string of the betfair account email address
+
+=item *
+
+countryOfResidence : string of the country of residence the betfair account is registered to
+
+=item *
+
+forgottenPasswordAnswer1 : string of the answer to question1 as returned by this service on the first request (optional)
+
+=item *
+
+forgottenPasswordAnswer2 : string of the answer to question2 as returned by this service on the first request (optional)
+
+=item *
+
+newPassword : string of the new account password (optional)
+
+=item *
+
+newPasswordRepeat : string of the new account password (optional)
+
+=back
+
+Example
+
+    use Data::Dumper;
+
+    my $securityQuestions = $betfair->forgotPassword({
+                                            username            => 'sillymoose',
+                                            emailAddress        => 'sillymoos@cpan.org',
+                                            countryOfResidence  => 'United Kingdom',
+                                    });
+    print Dumper($securityQuestions);
+
+    # now call service again with answers to security questions and new password parameters
+    my $resetPasswordResponse =  $betfair->forgotPassword({
+                                            username                    => 'sillymoose',
+                                            emailAddress                => 'sillymoos@cpan.org',
+                                            countryOfResidence          => 'United Kingdom',
+                                            forgottenPasswordAnswer1    => 'dasher',
+                                            forgottenPasswordAnswer2    => 'hoofs',
+                                            newPassword                 => 'moojolicious',
+                                            newPasswordRepeat           => 'moojolocious',
+                                    });
+
+=cut
+
+sub forgotPassword {
+    my ($self, $args) = @_;
+    my $checkParams = {
+        username                    => ['username', 1],
+        emailAddress                => ['string', 1],
+        countryOfResidence          => ['string',1],
+        forgottenPasswordAnswer1    => ['string', 0],
+        forgottenPasswordAnswer2    => ['string', 0],
+        newPassword                 => ['password', 0],
+        newPasswordRepeat           => ['password', 0],
+    };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    $args->{exchangeId} = 3;
+    if ($self->_doRequest('forgotPassword', $args)) {
+        my $response = $self->{response}->{'soap:Body'}->{'n:forgotPasswordResponse'}->{'n:Result'};
+        return 1 if exists $args->{forgottenPasswordAnswer1};
+        return  {
+            question1   => $response->{'question1'}->{'content'},
+            question2   => $response->{'question2'}->{'content'},
         };
     }
     return 0;
@@ -2224,17 +2745,29 @@ sub depositFromPaymentCard {
 
 =head2 getAccountFunds
 
-Returns a hashref of the account funds betfair response. See L<http://bdp.betfair.com/docs/GetAccountFunds.html> for details. No parameters are required.
+Returns a hashref of the account funds betfair response. See L<http://bdp.betfair.com/docs/GetAccountFunds.html> for details. Requires a hashref with the following parameters:
+
+=over
+
+=item *
+
+exchangeId : integer representing the exchange id to connect to, either 1 (UK and rest of the world) or 2 (Australia)
+
+=back
 
 Example
 
-    my $funds = $betfair->getAccountFunds;
+    my $funds = $betfair->getAccountFunds({exchangeId => 1});
 
 =cut
 
 sub getAccountFunds {
-    my ($self) = @_;
-    if ($self->_doRequest('getAccountFunds', 1, {})) {
+    my ($self, $args) = @_;
+    my $checkParams = {
+        exchangeId  => ['exchangeId', 1],
+    };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    if ($self->_doRequest('getAccountFunds', $args)) {
         return {
             availBalance => $self->{response}->{'soap:Body'}->{'n:getAccountFundsResponse'}->{'n:Result'}->{'availBalance'}->{'content'},
             balance => $self->{response}->{'soap:Body'}->{'n:getAccountFundsResponse'}->{'n:Result'}->{'balance'}->{'content'},
@@ -2271,6 +2804,10 @@ endDate : date for which to return records on or before this date (a string in t
 
 itemsIncluded : string of the betfair AccountStatementIncludeEnum see l<http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html> for details
 
+=item *
+
+exchangeId : integer representing the exchange id to connect to, either 1 (UK and rest of the world) or 2 (Australia)
+
 =back
 
 Example
@@ -2282,6 +2819,7 @@ Example
                                     startDate       => '2013-01-01T00:00:00.000Z',         
                                     endDate         => '2013-06-16T00:00:00.000Z',         
                                     itemsIncluded   => 'ALL',
+                                    exchangeId      => 2,
                               });
 
 =cut
@@ -2294,47 +2832,42 @@ sub getAccountStatement {
         startDate       => ['date', 1],         
         endDate         => ['date', 1],         
         itemsIncluded   => ['accountStatementIncludeEnum', 1],
+        exchangeId      => ['exchangeId', 1],
     };
     return 0 unless $self->_checkParams($checkParams, $args);
-    my $account_statement = [];
+    my @account_statement;
     if ($self->_doRequest('getAccountStatement', 1, $args)) {
         my $response = 
             $self->_forceArray($self->{response}->{'soap:Body'}->{'n:getAccountStatementResponse'}->{'n:Result'}->{'items'}->{'n2:AccountStatementItem'});
         foreach (@{$response}) {
-            $account_statement = _add_statement_line($account_statement, $_);
+            push(@account_statement, {
+                betType         => $_->{'betType'}->{'content'},
+                transactionId   => $_->{'transactionId'}->{'content'},
+                transactionType => $_->{'transactionType'}->{'content'},
+                betSize         => $_->{'betSize'}->{'content'},            
+                placedDate      => $_->{'placedDate'}->{'content'},
+                betId           => $_->{'betId'}->{'content'},
+                marketName      => $_->{'marketName'}->{'content'},
+                grossBetAmount  => $_->{'grossBetAmount'}->{'content'},
+                marketType      => $_->{'marketType'}->{'content'},
+                eventId         => $_->{'eventId'}->{'content'},
+                accountBalance  => $_->{'accountBalance'}->{'content'},
+                eventTypeId     => $_->{'eventTypeId'}->{'content'},            
+                betCategoryType => $_->{'betCategoryType'}->{'content'},
+                selectionName   => $_->{'selectionName'}->{'content'},
+                selectionId     => $_->{'selectionId'}->{'content'},
+                commissionRate  => $_->{'commissionRate'}->{'content'},
+                fullMarketName  => $_->{'fullMarketName'}->{'content'},
+                settledDate     => $_->{'settledDate'}->{'content'},
+                avgPrice        => $_->{'avgPrice'}->{'content'},
+                startDate       => $_->{'startDate'}->{'content'},
+                winLose         => $_->{'winLose'}->{'content'},
+                amount          => $_->{'amount'}->{'content'}
+            });
         }
-        return $account_statement;
+        return \@account_statement;
     } 
     return 0;
-
-    sub _add_statement_line {
-        my ($account_statement, $line_to_be_added) = @_;
-        push(@$account_statement, {
-            bet_type            => $line_to_be_added->{'betType'}->{'content'},
-            transaction_id      => $line_to_be_added->{'transactionId'}->{'content'},
-            transaction_type    => $line_to_be_added->{'transactionType'}->{'content'},
-            bet_size            => $line_to_be_added->{'betSize'}->{'content'},            
-            placed_date         => $line_to_be_added->{'placedDate'}->{'content'},
-            bet_id              => $line_to_be_added->{'betId'}->{'content'},
-            market_name         => $line_to_be_added->{'marketName'}->{'content'},
-            gross_bet_amount    => $line_to_be_added->{'grossBetAmount'}->{'content'},
-            market_type         => $line_to_be_added->{'marketType'}->{'content'},
-            event_id            => $line_to_be_added->{'eventId'}->{'content'},
-            account_balance     => $line_to_be_added->{'accountBalance'}->{'content'},
-            event_type_id       => $line_to_be_added->{'eventTypeId'}->{'content'},            
-            bet_category_type   => $line_to_be_added->{'betCategoryType'}->{'content'},
-            selection_name      => $line_to_be_added->{'selectionName'}->{'content'},
-            selection_id        => $line_to_be_added->{'selectionId'}->{'content'},
-            commission_rate     => $line_to_be_added->{'commissionRate'}->{'content'},
-            full_market_name    => $line_to_be_added->{'fullMarketName'}->{'content'},
-            settled_date        => $line_to_be_added->{'settledDate'}->{'content'},
-            avg_price           => $line_to_be_added->{'avgPrice'}->{'content'},
-            start_date          => $line_to_be_added->{'startDate'}->{'content'},
-            win_lose            => $line_to_be_added->{'winLose'}->{'content'},
-            amount              => $line_to_be_added->{'amount'}->{'content'}
-        });
-        return $account_statement;
-    }
 }
 
 =head2 getPaymentCard
@@ -2350,7 +2883,8 @@ Example
 sub getPaymentCard {
     my ($self, $args) = @_;
     my $payment_cards = [];
-    if ($self->_doRequest('getPaymentCard', 3, $args) ) {
+    $args->{exchangeId} = 3;
+    if ($self->_doRequest('getPaymentCard', $args) ) {
         my $response = $self->_forceArray(
                 $self->{response}->{'soap:Body'}->{'n:getPaymentCardResponse'}->{'n:Result'}->{'paymentCardItems'}->{'n2:PaymentCard'});
         foreach (@{$response}) {
@@ -2363,7 +2897,9 @@ sub getPaymentCard {
 
 =head2 getSubscriptionInfo
 
-Returns an arrayref of hashes of subscription or 0 on failure. Does not require any parameters. See L<http://bdp.betfair.com/docs/GetSubscriptionInfo.html> for details. Note that if you are using the personal free betfair API, this service will return no data.
+This service is not available with the free betfair API.
+
+Returns an arrayref of hashes of subscription or 0 on failure. See L<getSubscriptionInfo|http://bdp.betfair.com/docs/GetSubscriptionInfo.html> for details. Does not require any parameters.
 
 Example
 
@@ -2371,23 +2907,917 @@ Example
 
 =cut
 
-
 sub getSubscriptionInfo {
     my ($self, $args) = @_;
-    if ($self->_doRequest('getSubscriptionInfo', 3, $args) ) {
-        my $response = $self->{response}->{'soap:Body'}->{'n:getSubscriptionInfoResponse'}->{'n:Result'};
+    $args->{exchangeId} = 3;
+    if ($self->_doRequest('getSubscriptionInfo', $args) ) {
+        my $response = $self->{response}->{'soap:Body'}->{'n:getSubscriptionInfoResponse'}->{'n:Result'}->{subscriptions}->{'n2:Subscription'};
+        my $subscriptionInfo = {
+            billingAmount       => $response->{billingAmount}->{content},
+            billingDate         => $response->{billingDate}->{content},
+            billingPeriod       => $response->{billingPeriod}->{content},
+            productId           => $response->{productId}->{content},
+            productName         => $response->{productName}->{content},
+            subscribedDate      => $response->{subscribedDate}->{content},
+            status              => $response->{status}->{content},
+            vatEnabled          => $response->{vatEnabled}->{content},
+            setupCharge         => $response->{setupCharge}->{content},
+            setupChargeActive   => $response->{setupChargeActive}->{content},
+            services            => [],
+        };
+        foreach (@{$response->{services}->{'n2:ServiceCall'}}) {
+            push @{$subscriptionInfo->{services}}, {
+                        maxUsages   => $_->{maxUsages}->{content},
+                        period      => $_->{period}->{content},
+                        periodExpiry=> $_->{periodExpiry}->{content},
+                        serviceType => $_->{serviceType}->{content},
+                        usageCount  => $_->{usageCount}->{content},
+            };
+        }
+        return $subscriptionInfo;
+    }
+    return 0;
+}
+
+=head2 modifyPassword
+
+Changes the betfair account password. See L<http://bdp.betfair.com/docs/modifyPassword.html> for details. Returns the betfair response as a hashref or 0 on failure. Requires:
+
+=over
+
+=item *
+
+password : string of the current account password
+
+=item *
+
+newPassword : string of the new account password
+
+=item *
+
+newPasswordRepeat : string of the new account password
+
+=back
+
+Example
+
+    my $response = $betfair->modifyPassword({
+                                        password            => 'itsasecret',
+                                        newPassword         => 'moojolicious',
+                                        newPasswordRepeat   => 'moojolicious',
+                                    });
+
+=cut
+
+sub modifyPassword {
+    my ($self, $args) = @_;
+    my $checkParams = {
+        password                    => ['password', 1],
+        newPassword                 => ['password', 1],
+        newPasswordRepeat           => ['password', 1],
+    };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    $args->{exchangeId} = 3;
+    if ($self->_doRequest('modifyPassword', $args)) {
+        return 1;
+    }
+    return 0;
+}
+
+=head2 modifyProfile
+
+Modifies the account profile details of the betfair account. See L<modifyProfile|http://bdp.betfair.com/docs/ModifyProfile.html> for details. Returns 1 on success or 0 on failure. Requires a hashref with the following parameters:
+
+=over
+
+=item *
+
+password : string of the password for the betfair account
+
+=item *
+
+address1 : string of address line 1 (optional)
+
+=item *
+
+address2 : string of address line 2 (optional)
+
+=item *
+
+address3 : string of address line 3 (optional)
+
+=item *
+
+townCity : string of the town/city (optional)
+
+=item *
+
+countyState : string of the county or state - note for Australian accounts this must be a valid state (optional)
+
+=item *
+
+postCode : string of the postcode (aka zipcode). (optional)
+
+=item *
+
+countryOfResidence : string of the country of residence (optional)
+
+=item *
+
+homeTelephone : string of the home telephone number (optional)
+
+=item *
+
+workTelephone : string of the work telephone number (optional)
+
+=item *
+
+mobileTelephone : string of the mobile telephone number (optional)
+
+=item *
+
+emailAddress : string of the email address (optional)
+
+=item *
+
+timeZone : string of the timezone (optional)
+
+=item *
+
+depositLimit : integer of the deposite limit to set (optional)
+
+=item *
+
+depositLimitFrequency : string of the betfair GamcareLimitFreq enumerated type. See L<gamcareLimitFreqEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1028855i1028855> for details (optional)
+
+=item *
+
+lossLimit : integer of the Gamcare loss limit for the account (optional)
+
+=item *
+
+lossLimitFrequency : string of the betfair GamcareLimitFreq enumerated type. See L<gamcareLimitFreqEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1028855i1028855> for details (optional)
+
+=item *
+
+nationalIdentifier : string of the national identifier (optional)
+
+=back
+
+Example
+
+    # update mobile number
+    my $response = $betfair->modifyProfile({
+                                    password        => 'itsasecret',
+                                    mobileTelephone => '07777777777',
+                                });
+
+=cut
+
+
+sub modifyProfile {
+    my ($self, $args) = @_;
+    my $checkParams = {
+        password                => ['password', 1],
+        address1                => ['string', 0],
+        address2                => ['string', 0],
+        address3                => ['string', 0],
+        townCity                => ['string', 0],
+        countyState             => ['string', 0],
+        postCode                => ['string', 0],
+        countryOfResidence      => ['string', 0],
+        homeTelephone           => ['string', 0],
+        workTelephone           => ['string', 0],
+        mobileTelephone         => ['string', 0],
+        emailAddress            => ['string', 0],
+        timeZone                => ['string', 0],
+        depositLimit            => ['int', 0],
+        depositLimitFrequency   => ['gamcareLimitFreqEnum', 0],
+        lossLimit               => ['int', 0],
+        lossLimitFrequency      => ['gamcareLimitFreqEnum', 0],
+        nationalIdentifier      => ['string', 0],
+    };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    $args->{exchangeId} = 3;
+    if ($self->_doRequest('modifyProfile', $args)) {
+        return 1;
+    }
+    return 0;
+}
+
+=head2 retrieveLIMBMessage
+
+This service is not available with the betfair free API.
+
+Returns a hashref of the betfair response. See L<retrieveLIMBMessage|http://bdp.betfair.com/docs/RetrieveLIMBMessage.html> for details. No parameters are required.
+
+Example
+
+    my $limbMsg = $betfair->retrieveLimbMessage;
+
+=cut
+
+sub retrieveLIMBMessage {
+    my $self = shift;
+    if ($self->_doRequest('retrieveLIMBMessage', {exchangeId => 3})) {
+        my $response = $self->{response}->{'soap:Body'}->{'n:retrieveLIMBMessageResponse'}->{'n:Result'};
+        my $limbMsg = {
+              totalMessageCount                     => $response->{totalMessageCount}->{content},
+              
+              retrievePersonalMessage               => {
+                  message       => $response->{retrievePersonalMessage}->{message}->{content},                           
+                  messageId     => $response->{retrievePersonalMessage}->{messageId}->{content},                           
+                  enforceDate   => $response->{retrievePersonalMessage}->{enforceDate}->{content},                           
+                  indicator     => $response->{retrievePersonalMessage}->{indicator}->{content},
+              },
+
+              retrieveTCPrivacyPolicyChangeMessage  => {
+                  reasonForChange   => $response->{retrieveTCPrivacyPolicyChangeMessage}->{reasonForChange}->{content},                           
+                  messageId         => $response->{retrieveTCPrivacyPolicyChangeMessage}->{messageId}->{content},                           
+                  enforceDate       => $response->{retrieveTCPrivacyPolicyChangeMessage}->{enforceDate}->{content},                           
+                  indicator         => $response->{retrieveTCPrivacyPolicyChangeMessage}->{indicator}->{content},
+              },
+              retrievePasswordChangeMessage         => {
+                  messageId         => $response->{retrievePasswordChangeMessage}->{messageId}->{content},                           
+                  enforceDate       => $response->{retrievePasswordChangeMessage}->{enforceDate}->{content},                           
+                  indicator         => $response->{retrievePasswordChangeMessage}->{indicator}->{content},
+              },
+              retrieveBirthDateCheckMessage         => {
+                  messageId         => $response->{retrieveBirthDateCheckMessage}->{messageId}->{content},                           
+                  enforceDate       => $response->{retrieveBirthDateCheckMessage}->{enforceDate}->{content},                           
+                  indicator         => $response->{retrieveBirthDateCheckMessage}->{indicator}->{content},
+                  birthDate         => $response->{retrieveBirthDateCheckMessage}->{birthDate}->{content},
+              },
+              retrieveAddressCheckMessage           => {
+                  messageId         => $response->{retrieveAddressCheckMessage}->{messageId}->{content},                           
+                  enforceDate       => $response->{retrieveAddressCheckMessage}->{enforceDate}->{content},                           
+                  indicator         => $response->{retrieveAddressCheckMessage}->{indicator}->{content},
+                  address1          => $response->{retrieveAddressCheckMessage}->{address1}->{content},
+                  address2          => $response->{retrieveAddressCheckMessage}->{address2}->{content},
+                  address3          => $response->{retrieveAddressCheckMessage}->{address3}->{content},
+                  town              => $response->{retrieveAddressCheckMessage}->{town}->{content},
+                  county            => $response->{retrieveAddressCheckMessage}->{county}->{content},
+                  zipcode           => $response->{retrieveAddressCheckMessage}->{zipcode}->{content},
+                  country           => $response->{retrieveAddressCheckMessage}->{country}->{content},
+              },
+              retrieveContactDetailsCheckMessage    => {
+                  messageId         => $response->{retrieveContactDetailsCheckMessage}->{messageId}->{content},                           
+                  enforceDate       => $response->{retrieveContactDetailsCheckMessage}->{enforceDate}->{content},                           
+                  indicator         => $response->{retrieveContactDetailsCheckMessage}->{indicator}->{content},
+                  homeTelephone     => $response->{retrieveContactDetailsCheckMessage}->{homeTelephone}->{content},
+                  workTelephone     => $response->{retrieveContactDetailsCheckMessage}->{workTelephone}->{content},
+                  mobileTelephone   => $response->{retrieveContactDetailsCheckMessage}->{mobileTelephone}->{content},
+                  emailAddress      => $response->{retrieveContactDetailsCheckMessage}->{emailAddress}->{content},
+              },
+              retrieveChatNameChangeMessage    => {
+                  messageId         => $response->{retrieveChatNameChangeMessage}->{messageId}->{content},                           
+                  enforceDate       => $response->{retrieveChatNameChangeMessage}->{enforceDate}->{content},                           
+                  indicator         => $response->{retrieveChatNameChangeMessage}->{indicator}->{content},
+                  chatName          => $response->{retrieveChatNameChangeMessage}->{chatName}->{content},
+              },
+        };
+        my $billingAddressItems = $self->_forceArray(
+            $response->{retrieveCardBillingAddressCheckItems}->{'n2:retrieveCarBillingAddressCheckLIMBMessage'});
+        foreach (@{$billingAddressItems}) {
+            push @{$limbMsg->{retrieveCardBillingAddressCheckItems}}, {
+                        messageId       => $_->{messageId}->{content},
+                        enforceDate     => $_->{enforceDate}->{content},
+                        indicator       => $_->{indicator}->{content},
+                        nickName        => $_->{nickName}->{content},
+                        cardShortNumber => $_->{cardShortNumber}->{content},
+                        address1        => $_->{address1}->{content},
+                        address2        => $_->{address2}->{content},
+                        address3        => $_->{address3}->{content},
+                        town            => $_->{town}->{content},
+                        county          => $_->{county}->{content},
+                        zipcode         => $_->{zipcode}->{content},
+                        country         => $_->{country}->{content},
+             };
+        }
+        return $limbMsg;
+    }
+    return 0;
+}
+
+=head2 selfExclude
+
+WARNING - using this method will deactivate your betfair account for a minimum of 6 months. See L<selfExclude|http://bdp.betfair.com/docs/SelfExclude.html> for details. Returns 1 on success or 0 on failure. Requires the following parameters in a hashref:
+
+=over
+
+=item *
+
+selfExclude : string boolean response (should be 'true' to succeed)
+
+=item *
+
+password : string of the betfair account password
+
+=back
+
+Example
+
+    $excludeResult = $betfair->selfExclude({
+                                selfExclude => 'true',
+                                password    => 'itsasecret',
+                            });
+
+=cut
+
+sub selfExclude {
+    my ($self, $args) = @_;
+    my $checkParams = {
+        password    => ['password', 1],
+        selfExclude => ['boolean', 1],
+    };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    $args->{exchangeId} = 3;
+    if ($self->_doRequest('selfExclude', $args)) {
+        return 1;
+    }
+    return 0;
+}
+
+=head2 setChatName
+
+Not available with the free betfair API.
+
+Sets the chat name of the betfair account. See L<setChatName|http://bdp.betfair.com/docs/SetChatName.html> for details. Returns 1 on success or 0 on failure. Requires the following parameters in a hashref:
+
+=over
+
+=item *
+
+chatName : string of the desired chatname
+
+=item *
+
+password : string of the betfair account password
+
+=back
+
+Example
+
+    $excludeResult = $betfair->setChatName({
+                                chatName => 'sillymoose',
+                                password => 'itsasecret',
+                            });
+
+=cut
+
+sub setChatName {
+    my ($self, $args) = @_;
+    my $checkParams = {
+        password => ['password', 1],
+        chatName => ['string', 1],
+    };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    $args->{exchangeId} = 3;
+    if ($self->_doRequest('setChatName', $args)) {
+        return 1;
+    }
+    return 0;
+}
+
+=head2 submitLIMBMessage
+
+This service is not available with the betfair free API.
+
+Submits a LIMB message to the betfair API. See L<submitLIMBMessage|http://bdp.betfair.com/docs/SubmitLIMBMessage.html> for details. Returns 1 on success or 0 on failure. betfair returns additional validation error information on failure, so be sure to check the error message using the getError method. Requires a hashref with the following parameters:
+
+=over
+
+=item *
+
+password : string of the betfair account password
+
+=item *
+
+submitPersonalMessage : a hashref containing the following key / pair values (optional):
+
+=over 8
+
+=item *
+
+messageId : integer of the message Id
+
+=item *
+
+acknowledgement : string 'Y'
+
+=back
+
+=item *
+
+submitTCPrivacyPolicyChangeMessage : a hashref containing the following key / value pairs (optional):
+
+=over 8
+
+=item *
+
+messageId : integer of the message Id
+
+=item *
+
+tCPrivacyPolicyChangeAcceptance : string 'Y'
+
+=back
+
+=item *
+
+submitPasswordChangeMessage : a hashref containing the following key / value pairs (optional):
+
+=over 8
+
+=item *
+
+messageId : integer of the message Id
+
+=item *
+
+newPassword : string of the new password
+
+=item *
+
+newPasswordRepeat : string of the new password
+
+=back
+
+=item *
+
+submitBirthDateCheckMessage : a hashref containing the following key / value pairs (optional):
+
+=over 8
+
+=item *
+
+messageId : integer of the message Id
+
+=item *
+
+detailsCorrect : string of either 'Y' or 'N'
+
+=item *
+
+correctBirthDate : string of the correct birthdate - should be a valid XML datetime format
+
+=back
+
+=item *
+
+submitAddressCheckMessage : a hashref containing the following key / value pairs (optional):
+
+=over 8
+
+=item *
+
+messageId : integer of the message Id
+
+=item *
+
+detailsCorrect : string of either 'Y' or 'N'
+
+=item *
+
+newAddress1 : string of the first line of the address
+
+=item *
+
+newAddress2 : string of the second line of the address
+
+=item *
+
+newAddress3 : string of the third line of the address
+
+=item *
+
+newTown: string of the town of the address
+
+=item *
+
+newZipCode: string of the postal code of the address
+
+=item *
+
+newCountry: string of the the Country of the address
+
+=back
+
+submitContactDetailsCheckMessage: a hashref containing the following key / value pairs (optional):
+
+=over 8
+
+=item *
+
+messageId : integer of the message Id
+
+=item *
+
+detailsCorrect : string of either 'Y' or 'N'
+
+=item *
+
+newHomeTelephone : string of the new home telephone number
+
+=item *
+
+newWorkTelephone : string of the new work telephone number
+
+=item *
+
+newMobileTelephone : string of the new mobile telephone number
+
+=item *
+
+newEmailAddress : string of the new email address
+
+=back
+
+=item *
+
+submitChatNameChangeMessage : a hashref containing the following key / value pairs (optional):
+
+=over 8
+
+=item *
+
+messageId : integer of the message Id
+
+=item *
+
+newChatName : string of the new chat name
+
+=back
+
+=item *
+
+submitCardBillingAddressCheckItems : an arrayref of hashrefs containing the following key / value pairs (optional):
+
+=over 8
+
+=item *
+
+messageId : integer of the message Id
+
+=item *
+
+detailsCorrect : string of either 'Y' or 'N'
+
+=item *
+
+nickName : string of the card nick name (8 characters or less)
+
+=item *
+
+newAddress1 : string of the first line of the address
+
+=item *
+
+newAddress2 : string of the second line of the address
+
+=item *
+
+newAddress3 : string of the third line of the address
+
+=item *
+
+newTown: string of the town of the address
+
+=item *
+
+newZipCode: string of the postal code of the address
+
+=item *
+
+newCountry: string of the the Country of the address
+
+=back
+
+=back
+
+Example
+
+    my $limbMsg = $betfair->submitLimbMessage({
+                                        password                => 'itsasecret',
+                                        submitPersonalMessage   => {
+                                            messageId       => 123456789,
+                                            acknowledgement => 'Y',
+                                        },
+                                });
+
+=cut
+
+sub submitLIMBMessage {
+    my ($self, $args) = @_;
+    my $checkParams = {
+        password                            => ['password', 1],
+        submitPersonalMessage               => ['hash', 0],
+        submitTCPrivacyPolicyChangeMessage  => ['hash', 0],
+        submitPasswordChangeMessage         => ['hash', 0],
+        submitBirthDateCheckMessage         => ['hash', 0],
+        submitAddressCheckMessage           => ['hash', 0],
+        submitContactDetailsCheckMessage    => ['hash', 0],
+        submitChatNameChangeMessage         => ['hash', 0],
+        submitCardBillingAddressCheckItems  => ['hash', 0],
+    };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    $args->{exchangeId} = 3;
+    if ($self->_doRequest('submitLIMBMessage', $args) ) {
+        return 1;
+    }
+    # add any validation errors to the header error message so that user can retrieve the information using getError
+
+    return 0 unless exists $self->{response}->{'soap:Body'}->{'n:submitLIMBMessageResponse'}->{'n:Result'}->{validationErrors};
+    my $response = $self->_forceArray(
+        $self->{response}->{'soap:Body'}->{'n:submitLIMBMessageResponse'}->{'n:Result'});
+    my $validationErrors;
+    foreach (@{$response}) {
+            $validationErrors .= ' ' . $_->{content};
+    }
+    $self->{headerError} .= ' ' . $validationErrors;
+    return 0;
+}
+
+=head2 transferFunds
+
+Transfers funds between the UK and Australian wallets. See L<transferFunds|http://bdp.betfair.com/docs/TransferFunds.html> for details. Returns a hashref of the betfair response or 0 on failure. Requires the following parameters in a hashref:
+
+=over
+
+=item *
+
+sourceWalletId : integer either: 1 for UK wallet or 2 for the Australian wallet
+
+=item *
+
+targetWalletId : integer either: 1 for UK wallet or 2 for the Australian wallet
+
+=item *
+
+amount : number representing the amount of money to transfer between wallets
+
+=back
+
+Example
+
+    # transfer 15 from the UK wallet to the Australian wallet
+    $excludeResult = $betfair->transferFunds({
+                                sourceWalletId  => 1,
+                                targetWalletId  => 2,
+                                amount          => 15.0,
+                            });
+
+=cut
+
+sub transferFunds {
+    my ($self, $args) = @_;
+    my $checkParams = {
+        sourceWalletId  => ['int', 1],
+        targetWalletId  => ['int', 1],
+        amount          => ['decimal', 1],
+    };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    $args->{exchangeId} = 3;
+    if ($self->_doRequest('transferFunds', $args)) {
+        my $response = $self->{response}->{'soap:Body'}->{'n:transferFundsResponse'}->{'n:Result'};
         return {
-            minor_error_code    => $response->{'minorErrorCode'}->{'content'},
-            billing_amount      => $response->{'subscriptions'}->{'billingAmount'}->{'content'},
-            billing_date        => $response->{'subscriptions'}->{'billingDate'}->{'content'},
-            billing_period      => $response->{'subscriptions'}->{'billingPeriod'}->{'content'},
-            product_id          => $response->{'subscriptions'}->{'productId'}->{'content'},
-            product_name        => $response->{'subscriptions'}->{'productName'}->{'content'},
-            subscribed_date     => $response->{'subscriptions'}->{'subscribedDate'}->{'content'},
-            status              => $response->{'subscriptions'}->{'status'}->{'content'},
-            vat_enabled         => $response->{'subscriptions'}->{'vatEnabled'}->{'content'},
-            setup_charge        => $response->{'subscriptions'}->{'setupCharge'}->{'content'},
-            setup_charge_active => $response->{'subscriptions'}->{'setupChargeActive'}->{'content'}
+            monthlyDepositTotal => $response->{'monthlyDepositTotal'}->{'content'},
+        };
+    }
+    return 0;
+}
+
+=head2 updatePaymentCard
+
+Updates a payment card on your betfair account. Returns a hashref betfair response or 0 on failure. See L<http://bdp.betfair.com/docs/UpdatePaymentCard.html>. Requires:
+
+=over
+
+=item *
+
+cardStatus : string of a valid betfair paymentCardStatusEnum, either 'LOCKED' or 'UNLOCKED'
+
+=item *
+
+startDate : string of the card start date, optional depending on type of card
+
+=item *
+
+expiryDate : string of the card expiry date
+
+=item *
+
+issueNumber : string of the issue number or NULL if the cardType is not Solo or Switch
+
+=item *
+
+nickName : string of the card nickname must be less than 9 characters
+
+=item *
+
+password : string of the betfair account password
+
+=item *
+
+address1 : string of the first line of the address for the payment card
+
+=item *
+
+address2 : string of the second line of the address for the payment card
+
+=item *
+
+address3 : string of the third line of the address for the payment card (optional)
+
+=item *
+
+address4 : string of the fourth line of the address for the payment card (optional)
+
+=item *
+
+town : string of the town for the payment card
+
+=item *
+
+county : string of the county for the payment card
+
+=item *
+
+zipCode : string of the zip / postal code for the payment card
+
+=item *
+
+country : string of the country for the payment card
+
+=back
+
+Example
+
+    my $updatePaymentCardResponse = $betfair->updatePaymentCard({
+                                            cardStatus  => 'UNLOCKED',
+                                            startDate   => '0113',
+                                            expiryDate  => '0116',
+                                            issueNumber => 'NULL',
+                                            billingName => 'The Sillymoose',
+                                            nickName    => 'democard',
+                                            password    => 'password123',
+                                            address1    => 'Tasty bush',
+                                            address2    => 'Mountain Plains',
+                                            town        => 'Hoofton',
+                                            zipCode     => 'MO13FR',
+                                            county      => 'Mooshire',
+                                            country     => 'UK',
+                                 });
+
+=cut
+
+sub updatePaymentCard {
+    my ($self, $args) = @_;
+    my $checkParams = {
+        cardStatus  => ['cardStatusEnum', 1],
+        startDate   => ['cardDate', 1],
+        expiryDate  => ['cardDate', 1],
+        issueNumber => ['int', 1],
+        billingName => ['string', 1],
+        nickName    => ['string9', 1],
+        password    => ['password', 1],
+        address1    => ['string', 1],
+        address2    => ['string', 0],
+        address3    => ['string', 0],
+        address4    => ['string', 0],
+        town        => ['string', 1],
+        zipCode     => ['string', 1],
+        county      => ['string', 1],
+        country     => ['string', 1],
+    };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    $args->{exchangeId} = 3;
+    if ($self->_doRequest('updatePaymentCard', $args) ) {
+        my $response = $self->{response}->{'soap:Body'}->{'n:updatePaymentCardResponse'}->{'n:Result'};
+        return {
+            nickName    => $response->{nickName}->{content},
+            billingName => $response->{billingName}->{content},
+            cardType    => $response->{cardType}->{content},
+            expiryDate  => $response->{expiryDate}->{content},
+            startDate   => $response->{startDate}->{content},
+            address1    => $response->{address1}->{content},
+            address2    => $response->{address2}->{content},
+            address3    => $response->{address3}->{content},
+            address4    => $response->{address4}->{content},
+            zipCode     => $response->{zipCode}->{content},
+            country     => $response->{country}->{content},
+        };
+    }
+    return 0;
+}
+
+=head2 viewProfile
+
+Returns a hashref betfair response or 0 on failure. See L<viewProfile|http://bdp.betfair.com/docs/ViewProfile.html>. Requires no parameters.
+
+Example
+
+    my $profile = $betfair->viewProfile;
+
+=cut
+
+sub viewProfile {
+    my $self = shift;
+    if ($self->_doRequest('viewProfile', {exchangeId => 3})) {
+        my $response = $self->{response}->{'soap:Body'}->{'n:viewProfileResponse'}->{'n:Result'};
+        return {
+            title               => $response->{title}->{content},
+            firstName           => $response->{firstName}->{content},
+            surname             => $response->{surname}->{content},
+            userName            => $response->{userName}->{content},
+            forumName           => $response->{forumName}->{content},
+            address1            => $response->{address1}->{content},
+            address2            => $response->{address2}->{content},
+            address3            => $response->{address3}->{content},
+            townCity            => $response->{townCity}->{content},
+            countyState         => $response->{countyState}->{content},
+            postCode            => $response->{postCode}->{content},
+            countryOfResidence  => $response->{countryOfResidence}->{content},
+            homeTelephone       => $response->{homeTelephone}->{content},
+            workTelephone       => $response->{workTelephone}->{content},
+            mobileTelephone     => $response->{mobileTelephone}->{content},
+            emailAddress        => $response->{emailAddress}->{content},
+            timeZone            => $response->{timeZone}->{content},
+            currency            => $response->{currency}->{content},
+            gamecareLimit       => $response->{gamcareLimit}->{content},
+            gamcareFrequency    => $response->{gamcareFrequency}->{content},
+            gamecareLossLimit   => $response->{gamcareLossLimit}->{content},
+            gamcareLossLimitFrequency=> $response->{gamcareLossLimitFrequency}->{content},
+        };
+    }
+    return 0;
+}
+
+=head2 viewProfileV2
+
+Returns a hashref betfair response or 0 on failure. See L<viewProfileV2|http://bdp.betfair.com/docs/ViewProfileV2.html>. Requires no parameters.
+
+Example
+
+    my $profile = $betfair->viewProfileV2;
+
+=cut
+
+sub viewProfileV2 {
+    my $self = shift;
+    if ($self->_doRequest('viewProfileV2', {requestVersion  => 'V1',
+                                            exchangeId      => 3,
+                                           })) {
+        my $response = $self->{response}->{'soap:Body'}->{'n:viewProfileV2Response'}->{'n:Result'};
+        return {
+            title               => $response->{title}->{content},
+            firstName           => $response->{firstName}->{content},
+            surname             => $response->{surname}->{content},
+            userName            => $response->{userName}->{content},
+            forumName           => $response->{forumName}->{content},
+            address1            => $response->{address1}->{content},
+            address2            => $response->{address2}->{content},
+            address3            => $response->{address3}->{content},
+            townCity            => $response->{townCity}->{content},
+            countyState         => $response->{countyState}->{content},
+            postCode            => $response->{postCode}->{content},
+            countryOfResidence  => $response->{countryOfResidence}->{content},
+            homeTelephone       => $response->{homeTelephone}->{content},
+            workTelephone       => $response->{workTelephone}->{content},
+            mobileTelephone     => $response->{mobileTelephone}->{content},
+            emailAddress        => $response->{emailAddress}->{content},
+            timeZone            => $response->{timeZone}->{content},
+            currency            => $response->{currency}->{content},
+            gamecareLimit       => $response->{gamcareLimit}->{content},
+            gamcareFrequency    => $response->{gamcareFrequency}->{content},
+            gamecareLossLimit   => $response->{gamcareLossLimit}->{content},
+            gamcareLossLimitFrequency=> $response->{gamcareLossLimitFrequency}->{content},
+            tAN                 => $response->{tAN}->{content},
+            referAndEarnCode    => $response->{referAndEarnCode}->{content},
+            earthportId         => $response->{earthportId}->{content},
+            kYCStatus           => $response->{kYCStatus}->{content},
+            nationalIdentifier  => $response->{nationalIdentifier}->{content},
+        };
+    }
+    return 0;
+}
+
+=head2 viewReferAndEarn
+
+Returns a hashref containing the betfair account's refer and earn code or 0 on failure. See L<viewReferAndEarn|http://bdp.betfair.com/docs/ViewReferAndEarn.html> for details. Requires no parameters.
+
+Example
+
+    my $referAndEarnCode = $betfair->viewReferAndEarn;
+
+=cut
+
+sub viewReferAndEarn {
+    my $self = shift;
+    if ($self->_doRequest('viewReferAndEarn', {exchangeId => 3})) {
+        my $response = $self->{response}->{'soap:Body'}->{'n:viewReferAndEarnResponse'}->{'n:Result'};
+        return {
+            referAndEarnCode => $response->{'referAndEarnCode'}->{'content'},
         };
     }
     return 0;
@@ -2431,13 +3861,12 @@ sub withdrawToPaymentCard {
         password        => ['password', 1],
     };
     return 0 unless $self->_checkParams($checkParams, $args);
-    if ($self->_doRequest('withdrawToPaymentCard', 3, $args) ) {
+    $args->{exchangeId} = 3;
+    if ($self->_doRequest('withdrawToPaymentCard', $args) ) {
         my $response = $self->{response}->{'soap:Body'}->{'n:withdrawToPaymentCardResponse'}->{'n:Result'};
         return {
-            amount_withdrawn   => $response->{'amountWithdrawn'}->{'content'},
-            error_code         => $response->{'errorCode'}->{'content'},
-            minor_error_code   => $response->{'minorErrorCode'}->{'content'},
-            max_amount         => $response->{'maxAmount'}->{'content'}            
+            amountWithdrawn   => $response->{'amountWithdrawn'}->{'content'},
+            maxAmount         => $response->{'maxAmount'}->{'content'}            
         };
     }
     return 0;
@@ -2452,7 +3881,12 @@ Processes requests to and from the betfair API.
 =cut
 
 sub _doRequest {
-    my ($self, $action, $server, $params) = @_;
+    my ($self, $action, $params) = @_;
+
+    # get the server url and remove the server id from $params
+    my $server = $params->{exchangeId};
+    my $uri = $self->_getServerURI($server);
+    delete $params->{exchangeId};
 
     # clear data from previous request
     $self->_clearData;
@@ -2460,8 +3894,6 @@ sub _doRequest {
     # add header to $params
     $params->{header}->{sessionToken} = $self->{sessionToken} if defined $self->{sessionToken}; 
     $params->{header}->{clientStamp} = 0;
-
-    my $uri = $self->_getServerURI($server);
 
     # build xml message
     $self->{xmlsent} = WWW::betfair::Template::populate($uri, $action, $params);
@@ -2529,26 +3961,26 @@ Pushes a hashref of payment card key / value pairs into an arrayref and returns 
 sub _addPaymentCardLine {
     my ($self, $payment_card, $line_to_be_added) = @_;
     push(@{$payment_card}, {
-        country_code_iso3       => $line_to_be_added->{'billingCountryIso3'}->{'content'},
-        billing_address1        => $line_to_be_added->{'billingAddress1'}->{'content'},
-        billing_address2        => $line_to_be_added->{'billingAddress2'}->{'content'},
-        billing_address3        => $line_to_be_added->{'billingAddress3'}->{'content'},
-        billing_address4        => $line_to_be_added->{'billingAddress4'}->{'content'},
-        card_type               => $line_to_be_added->{'cardType'}->{'content'},
-        issuing_country_iso3    => $line_to_be_added->{'issuingCountryIso3'}->{'content'},
-        total_withdrawals       => $line_to_be_added->{'totalWithdrawals'}->{'content'},
-        expiry_date             => $line_to_be_added->{'expiryDate'}->{'content'},
-        nickname                => $line_to_be_added->{'nickName'}->{'content'},
-        card_status             => $line_to_be_added->{'cardStatus'}->{'content'},
-        issue_number            => $line_to_be_added->{'issueNumber'}->{'content'},
-        country                 => $line_to_be_added->{'country'}->{'content'},
-        county                  => $line_to_be_added->{'county'}->{'content'},
-        billing_name            => $line_to_be_added->{'billingName'}->{'content'},
-        town                    => $line_to_be_added->{'town'}->{'content'},
-        postcode                => $line_to_be_added->{'postcode'}->{'content'},
-        net_deposits            => $line_to_be_added->{'netDeposits'}->{'content'},
-        card_short_number       => $line_to_be_added->{'cardShortNumber'}->{'content'},
-        total_deposits          => $line_to_be_added->{'totalDeposits'}->{'content'}            
+        countryCodeIso3     => $line_to_be_added->{'billingCountryIso3'}->{'content'},
+        billingAddress1     => $line_to_be_added->{'billingAddress1'}->{'content'},
+        billingAddress2     => $line_to_be_added->{'billingAddress2'}->{'content'},
+        billingAddress3     => $line_to_be_added->{'billingAddress3'}->{'content'},
+        billingAddress4     => $line_to_be_added->{'billingAddress4'}->{'content'},
+        cardType            => $line_to_be_added->{'cardType'}->{'content'},
+        issuingCountryIso3  => $line_to_be_added->{'issuingCountryIso3'}->{'content'},
+        totalWithdrawals    => $line_to_be_added->{'totalWithdrawals'}->{'content'},
+        expiryDate          => $line_to_be_added->{'expiryDate'}->{'content'},
+        nickName            => $line_to_be_added->{'nickName'}->{'content'},
+        cardStatus          => $line_to_be_added->{'cardStatus'}->{'content'},
+        issueNumber         => $line_to_be_added->{'issueNumber'}->{'content'},
+        country             => $line_to_be_added->{'country'}->{'content'},
+        county              => $line_to_be_added->{'county'}->{'content'},
+        billingName         => $line_to_be_added->{'billingName'}->{'content'},
+        town                => $line_to_be_added->{'town'}->{'content'},
+        postcode            => $line_to_be_added->{'postcode'}->{'content'},
+        netDeposits         => $line_to_be_added->{'netDeposits'}->{'content'},
+        cardShortNumber     => $line_to_be_added->{'cardShortNumber'}->{'content'},
+        totalDeposits       => $line_to_be_added->{'totalDeposits'}->{'content'}            
     });
     return $payment_card;
 }
