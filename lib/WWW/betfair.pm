@@ -15,25 +15,41 @@ WWW::betfair - interact with the betfair API using OO Perl
 
 =head1 VERSION
 
-Version 0.13
+Version 0.14
 
 =cut
 
-our $VERSION = '0.13';
-
-=head1 WARNING
-
-This version of the WWW::betfair is beta - it has not been thoroughly tested. Therefore be cautious and check all argument types and values before using the methods in this library. Ensure that you adequately test any method of L<WWW::betfair> before using the method. As per the software license it is provided AS IS and no liability is accepted for any costs or penalties caused by using L<WWW::betfair>. 
-
-To understand how to use the betfair API it is essential to read  the L<betfair documentation|http://bdp.betfair.com/docs/> before using L<WWW::betfair>. The betfair documentation is an excellent reference which also explains some of the quirks and bugs with the current betfair API.
+our $VERSION = '0.14';
 
 =head1 WHAT IS BETFAIR?
 
-L<betfair|http://www.betfair.com> is a sports betting services provider best known for hosting a sports betting exchange. The sports betting exchange works like a marketplace: betfair provides an anonymous platform for individuals to offer and take bets on sports events at a certain price and size; it is the ebay of betting. betfair provides an API for the sports betting exchange which enables users to search for sports events and markets, place and update bets and manage their account by depositing and withdrawing funds.
+L<betfair|http://www.betfair.com> is a sports betting services provider best known for hosting the largest sports betting exchange in the world. The sports betting exchange works like a marketplace: betfair provides an anonymous platform for individuals to offer and take bets on sports events at a certain price and size; it is the ebay of betting. betfair provides an API for the sports betting exchange which enables users to search for sports events and markets, place and update bets and manage their account by depositing and withdrawing funds.
 
 =head1 WHY USE THIS LIBRARY?
 
-The betfair API communicates using verbose XML files which contain various bugs and quirks. L<WWW::betfair> makes it easier to use the betfair API by providing a Perl interface which manages the befair session, serializing API calls to betfair into the required XML format and de-serializing and parsing the betfair responses back into Perl data structures.
+The betfair API communicates using verbose XML files which contain various bugs and quirks. L<WWW::betfair> makes it easier to use the betfair API by providing a Perl interface which manages the befair session, serializing API calls to betfair into the required XML format and de-serializing and parsing the betfair responses back into Perl data structures. Additionally L<WWW::betfair> provides:
+
+=over
+
+=item *
+
+100% of the free and paid methods of the betfair API
+
+=item *
+
+Complete documentation of every method with an example method call
+
+=item *
+
+Type-checking of arguments before they are sent to betfair
+
+=back
+
+=head1 WARNING
+
+Betting using a software program can have unintended consequences. Check all argument types and values before using the methods in this library. Ensure that you adequately test any method of L<WWW::betfair> before using the method and risking money on it. As per the software license it is provided AS IS and no liability is accepted for any costs or penalties caused by using L<WWW::betfair>. 
+
+To understand how to use the betfair API it is essential to read the L<betfair documentation|http://bdp.betfair.com/docs/> before using L<WWW::betfair>. The betfair documentation is an excellent reference.
 
 =head1 SYNOPSIS
 
@@ -230,7 +246,7 @@ sub logout {
     if ($self->_doRequest('logout', {exchangeId => 3})) {
         # check body error message, different to header error
         my $self->{error} 
-            = $self->{response}->{'soap:Body'}->{'n:logoutResponse'}->{'n:Result'}->{'errorCode'}->{'content'};
+            = $self->{response}->{'soap:Body'}->{'n:logoutResponse'}->{'n:Result'}->{'errorCode'}->{content};
         return 1 if $self->{error} eq 'OK';
     }
     return 0;
@@ -278,7 +294,7 @@ sub convertCurrency {
     return 0 unless $self->_checkParams($checkParams, $args);
     if ($self->_doRequest('convertCurrency', $args) ) {
         return { convertedAmount =>
-                $self->{response}->{'soap:Body'}->{'n:convertCurrencyResponse'}->{'n:Result'}->{'convertedAmount'}->{'content'}
+                $self->{response}->{'soap:Body'}->{'n:convertCurrencyResponse'}->{'n:Result'}->{'convertedAmount'}->{content}
         };
     }
     return 0;
@@ -300,10 +316,10 @@ sub getActiveEventTypes {
     if ($self->_doRequest('getActiveEventTypes', {exchangeId => 3}) ) {
         foreach (@{$self->{response}->{'soap:Body'}->{'n:getActiveEventTypesResponse'}->{'n:Result'}->{'eventTypeItems'}->{'n2:EventType'}}) {
             push(@{$active_event_types},{ 
-                name            => $_->{'name'}->{'content'},
-                id              => $_->{'id'}->{'content'},
-                exchangeId      => $_->{'exchangeId'}->{'content'},
-                nextMarketId    => $_->{'nextMarketId'}->{'content'},
+                name            => $_->{'name'}->{content},
+                id              => $_->{'id'}->{content},
+                exchangeId      => $_->{'exchangeId'}->{content},
+                nextMarketId    => $_->{'nextMarketId'}->{content},
             });
         }
         return $active_event_types;
@@ -327,8 +343,8 @@ sub getAllCurrencies {
     if ($self->_doRequest('getAllCurrencies', {exchangeId => 3}) ) {
         foreach (@{$self->{response}->{'soap:Body'}->{'n:getAllCurrenciesResponse'}->{'n:Result'}->{'currencyItems'}->{'n2:Currency'}}) {
             push(@{$currencies},{
-                currencyCode    => $_->{'currencyCode'}->{'content'},
-                rateGBP         => $_->{'rateGBP'}->{'content'},
+                currencyCode    => $_->{'currencyCode'}->{content},
+                rateGBP         => $_->{'rateGBP'}->{content},
             });
         }
         return $currencies;
@@ -352,11 +368,11 @@ sub getAllCurrenciesV2 {
     if ($self->_doRequest('getAllCurrenciesV2', {exchangeId => 3}) ) {
         foreach (@{$self->{response}->{'soap:Body'}->{'n:getAllCurrenciesV2Response'}->{'n:Result'}->{'currencyItems'}->{'n2:CurrencyV2'}}) {
             push(@{$currenciesV2},{
-                currencyCode            => $_->{'currencyCode'}->{'content'},
-                rateGBP                 => $_->{'rateGBP'}->{'content'},
-                minimumStake            => $_->{'minimumStake'}->{'content'},
-                minimumRangeStake       => $_->{'minimumRangeStake'}->{'content'},
-                minimumBSPLayLiability => $_->{'minimumBSPLayLiability'}->{'content'},
+                currencyCode            => $_->{'currencyCode'}->{content},
+                rateGBP                 => $_->{'rateGBP'}->{content},
+                minimumStake            => $_->{'minimumStake'}->{content},
+                minimumRangeStake       => $_->{'minimumRangeStake'}->{content},
+                minimumBSPLayLiability => $_->{'minimumBSPLayLiability'}->{content},
             });
         }
         return $currenciesV2;
@@ -380,10 +396,10 @@ sub getAllEventTypes {
         my $all_event_types = [];
         foreach (@{$self->{response}->{'soap:Body'}->{'n:getAllEventTypesResponse'}->{'n:Result'}->{'eventTypeItems'}->{'n2:EventType'} }) {
             push(@{$all_event_types},{
-                name            => $_->{'name'}->{'content'},
-                id              => $_->{'id'}->{'content'},
-                exchangeId      => $_->{'exchangeId'}->{'content'},
-                nextMarketId    => $_->{'nextMarketId'}->{'content'},
+                name            => $_->{'name'}->{content},
+                id              => $_->{'id'}->{content},
+                exchangeId      => $_->{'exchangeId'}->{content},
+                nextMarketId    => $_->{'nextMarketId'}->{content},
             });   
         }
         return $all_event_types;  
@@ -415,7 +431,7 @@ sub getAllMarkets {
     return 0 unless $self->_checkParams($checkParams, $args);
     if ($self->_doRequest('getAllMarkets', $args)) {
         my $all_markets = [];
-        foreach (split /[^\\]:/, $self->{response}->{'soap:Body'}->{'n:getAllMarketsResponse'}->{'n:Result'}->{'marketData'}->{'content'}) {
+        foreach (split /[^\\]:/, $self->{response}->{'soap:Body'}->{'n:getAllMarketsResponse'}->{'n:Result'}->{'marketData'}->{content}) {
             my @market = split /~/, $_;
             push @{$all_markets}, { 
                     marketId            => $market[0], 
@@ -785,7 +801,7 @@ marketId : integer representing the betfair market id.
 
 =item *
 
-currencyCode : string representing the three letter ISO currency code. Only certain currencies are accepted by betfair (GBP, USD, EUR, NOK, SGD, SEK, AUD, CAD, HKD, DKK);
+currencyCode : string representing the three letter ISO currency code. Only certain currencies are accepted by betfair GBP, USD, EUR, NOK, SGD, SEK, AUD, CAD, HKD, DKK (optional)
 
 =item *
 
@@ -810,7 +826,7 @@ sub getCompleteMarketPricesCompressed {
     };
     return 0 unless $self->_checkParams($checkParams, $args);
     if ($self->_doRequest('getCompleteMarketPricesCompressed', $args)) {
-        my $response = $self->{response}->{'soap:Body'}->{'n:getCompleteMarketPricesCompressedResponse'}->{'n:Result'}->{'completeMarketPrices'}->{'content'};
+        my $response = $self->{response}->{'soap:Body'}->{'n:getCompleteMarketPricesCompressedResponse'}->{'n:Result'}->{'completeMarketPrices'}->{content};
         my @fields = split /:/, $response;
         #109799180~0~;name,timeRemoved,reductionFactor;
         my $idAndRemovedRunners = shift @fields; # not used yet
@@ -1078,6 +1094,10 @@ asianLineId : integer representing the betfair asian line id of the market - onl
 
 exchangeId : integer representing the exchange id to connect to, either 1 (UK and rest of the world) or 2 (Australia)
 
+=item *
+
+currencyCode : string representing the three letter ISO currency code. Only certain currencies are accepted by betfair GBP, USD, EUR, NOK, SGD, SEK, AUD, CAD, HKD, DKK (optional)
+
 =back
 
 Example
@@ -1095,6 +1115,7 @@ sub getDetailAvailableMktDepth {
                         selectionId => ['int', 1],
                         asianLineId => ['int', 0],
                         exchangeId  => ['exchangeId', 1],
+                        currencyCode=> ['currencyCode', 0],
     };
     return 0 unless $self->_checkParams($checkParams, $args);
     if ($self->_doRequest('getDetailAvailableMktDepth', $args)) {
@@ -1268,19 +1289,19 @@ sub getMarket {
         my @parsed_runners = ();
         foreach (@{$runners_list}) {
             push(@parsed_runners, {
-                name        => $_->{'name'}->{'content'},
-                selectionId => $_->{'selectionId'}->{'content'},
+                name        => $_->{'name'}->{content},
+                selectionId => $_->{'selectionId'}->{content},
             });
         }
         return {
-            name            => $response->{'name'}->{'content'},
-            bf_id           => $response->{'marketId'}->{'content'},
-            event_type_id   => $response->{'eventTypeId'}->{'content'}, 
-            time            => $response->{'marketTime'}->{'content'},
-            marketStatus    => $response->{'marketStatus'}->{'content'},
-            runners         => \@parsed_runners,
-            description     => $response->{'marketDescription'}->{'content'},
-            active_flag     => 1,
+            name                => $response->{'name'}->{content},
+            marketId            => $response->{'marketId'}->{content},
+            eventTypeId         => $response->{'eventTypeId'}->{content}, 
+            marketTime          => $response->{'marketTime'}->{content},
+            marketStatus        => $response->{'marketStatus'}->{content},
+            runners             => \@parsed_runners,
+            marketDescription   => $response->{'marketDescription'}->{content},
+            activeFlag          => 1,
         };
     } 
     return 0;
@@ -1319,12 +1340,12 @@ sub getMarketInfo {
     if ($self->_doRequest('getMarketInfo', $args) ) {
         my $response = $self->{response}->{'soap:Body'}->{'n:getMarketInfoResponse'}->{'n:Result'}->{'marketLite'};
         return {
-            delay               => $response->{'delay'}->{'content'},
-            numberOfRunners     => $response->{'numberOfRunners'}->{'content'},
-            marketSuspendTime   => $response->{'marketSuspendTime'}->{'content'}, 
-            marketTime          => $response->{'marketTime'}->{'content'},
-            marketStatus        => $response->{'marketStatus'}->{'content'},
-            openForBspBetting   => $response->{'openForBspBetting'}->{'content'},
+            delay               => $response->{'delay'}->{content},
+            numberOfRunners     => $response->{'numberOfRunners'}->{content},
+            marketSuspendTime   => $response->{'marketSuspendTime'}->{content}, 
+            marketTime          => $response->{'marketTime'}->{content},
+            marketStatus        => $response->{'marketStatus'}->{content},
+            openForBspBetting   => $response->{'openForBspBetting'}->{content},
         };
     } 
     return 0;
@@ -1342,7 +1363,7 @@ marketId : integer which is the betfair id of the market
 
 =item *
 
-currencyCode : string representing the three letter ISO currency code. Only certain currencies are accepted by betfair (GBP, USD, EUR, NOK, SGD, SEK, AUD, CAD, HKD, DKK);
+currencyCode : string representing the three letter ISO currency code. Only certain currencies are accepted by betfair GBP, USD, EUR, NOK, SGD, SEK, AUD, CAD, HKD, DKK (optional)
 
 =item *
 
@@ -1437,7 +1458,7 @@ marketId : integer representing the betfair market id.
 
 =item *
 
-currencyCode : string representing the three letter ISO currency code. Only certain currencies are accepted by betfair (GBP, USD, EUR, NOK, SGD, SEK, AUD, CAD, HKD, DKK);
+currencyCode : string representing the three letter ISO currency code. Only certain currencies are accepted by betfair GBP, USD, EUR, NOK, SGD, SEK, AUD, CAD, HKD, DKK (optional)
 
 =item *
 
@@ -1459,7 +1480,7 @@ sub getMarketPricesCompressed {
     };
     return 0 unless $self->_checkParams($checkParams, $args);
     if ($self->_doRequest('getMarketPricesCompressed', $args)) {
-        my $response = $self->{response}->{'soap:Body'}->{'n:getMarketPricesCompressedResponse'}->{'n:Result'}->{'marketPrices'}->{'content'};
+        my $response = $self->{response}->{'soap:Body'}->{'n:getMarketPricesCompressedResponse'}->{'n:Result'}->{'marketPrices'}->{content};
         my @fields = split /:/, $response;
         my @marketData = split /~/, shift @fields;
         my @removedRunners;
@@ -1608,21 +1629,21 @@ sub getMUBets {
             $self->{response}->{'soap:Body'}->{'n:getMUBetsResponse'}->{'n:Result'}->{'bets'}->{'n2:MUBet'});
         foreach (@{$response} ) {
             push @{$mu_bets}, {
-                marketId            => $_->{'marketId'}->{'content'},
-                betType             => $_->{'betType'}->{'content'},
-                transactionId       => $_->{'transactionId'}->{'content'},
-                size                => $_->{'size'}->{'content'},
-                placedDate          => $_->{'placedDate'}->{'content'},
-                betId               => $_->{'betId'}->{'content'},
-                betStatus           => $_->{'betStatus'}->{'content'},
-                betCategory_type    => $_->{'betCategoryType'}->{'content'},
-                betPersistence      => $_->{'betPersistenceType'}->{'content'},
-                matchedDate         => $_->{'matchedDate'}->{'content'},
-                selectionId         => $_->{'selectionId'}->{'content'},
-                price               => $_->{'price'}->{'content'},
-                bspLiability        => $_->{'bspLiability'}->{'content'},
-                handicap            => $_->{'handicap'}->{'content'},
-                asianLineId         => $_->{'asianLineId'}->{'content'}
+                marketId            => $_->{'marketId'}->{content},
+                betType             => $_->{'betType'}->{content},
+                transactionId       => $_->{'transactionId'}->{content},
+                size                => $_->{'size'}->{content},
+                placedDate          => $_->{'placedDate'}->{content},
+                betId               => $_->{'betId'}->{content},
+                betStatus           => $_->{'betStatus'}->{content},
+                betCategory_type    => $_->{'betCategoryType'}->{content},
+                betPersistence      => $_->{'betPersistenceType'}->{content},
+                matchedDate         => $_->{'matchedDate'}->{content},
+                selectionId         => $_->{'selectionId'}->{content},
+                price               => $_->{'price'}->{content},
+                bspLiability        => $_->{'bspLiability'}->{content},
+                handicap            => $_->{'handicap'}->{content},
+                asianLineId         => $_->{'asianLineId'}->{content}
             };
         }
         return $mu_bets;
@@ -1719,21 +1740,102 @@ sub getMUBetsLite {
             $self->{response}->{'soap:Body'}->{'n:getMUBetsLiteResponse'}->{'n:Result'}->{'betLites'}->{'n2:MUBetLite'});
         foreach (@{$response} ) {
             push (@muBetsLite, {
-                betCategoryType     => $_->{'betCategoryType'}->{'content'},
-                betId               => $_->{'betId'}->{'content'},
-                betPersistenceType  => $_->{'betPersistenceType'}->{'content'},
-                betStatus           => $_->{'betStatus'}->{'content'},
-                bspLiability        => $_->{'bspLiability'}->{'content'},
-                marketId            => $_->{'marketId'}->{'content'},
-                betType             => $_->{'betType'}->{'content'},
-                size                => $_->{'size'}->{'content'},
-                transactionId       => $_->{'transactionId'}->{'content'},
+                betCategoryType     => $_->{'betCategoryType'}->{content},
+                betId               => $_->{'betId'}->{content},
+                betPersistenceType  => $_->{'betPersistenceType'}->{content},
+                betStatus           => $_->{'betStatus'}->{content},
+                bspLiability        => $_->{'bspLiability'}->{content},
+                marketId            => $_->{'marketId'}->{content},
+                betType             => $_->{'betType'}->{content},
+                size                => $_->{'size'}->{content},
+                transactionId       => $_->{'transactionId'}->{content},
             });
         }
         return \@muBetsLite;
     } 
     return 0;
 }
+
+=head2 getMarketProfitAndLoss
+
+Returns a hashref containing the profit and loss for a particular market. See L<getMarketProfitAndLoss|http://bdp.betfair.com/docs/GetMarketProfitAndLoss.html> for details. Requires:
+
+=over
+
+=item *
+
+marketId : integer representing the betfair market id to return the market traded volume for
+
+=item *
+
+includeSettledBets : string boolean ('true' or 'false') to include settled bets in the P&L calculation (optional)
+
+=item *
+
+includeBspBets : string boolean ('true' or 'false') to include BSP bets in the P&L calculation
+
+=item *
+
+netOfCommission : string boolean ('true' or 'false') to include commission in P&L calculation (optional) 
+
+=item *
+
+exchangeId : integer representing the exchange id to connect to, either 1 (UK and rest of the world) or 2 (Australia)
+
+=back
+
+Example
+
+    my $marketProfitAndLoss = $betfair->getMarketProfitAndLoss({marketId        => 923456791,
+                                                                includeBspBets  => 'false',
+                                                                exchangeId      => 1,
+                                                                });
+
+=cut
+
+sub getMarketProfitAndLoss {
+    my ($self, $args) = @_;
+    my $checkParams = { marketId            => ['int', 1], 
+                        includeSettledBets  => ['boolean', 0],
+                        includeBspBets      => ['boolean', 1],
+                        netOfCommission     => ['boolean', 0],
+                        exchangeId          => ['exchangeId', 1],
+    };
+    return 0 unless $self->_checkParams($checkParams, $args);
+    # handle mis-capitalization of marketID expected by betfair
+    $args->{marketID} = $args->{marketId};
+    delete $args->{marketId};
+    if ($self->_doRequest('getMarketProfitAndLoss', $args)) {
+        my $response = $self->{response}->{'soap:Body'}->{'n:getMarketProfitAndLossResponse'}->{'n:Result'};
+        my $profitAndLoss = {
+            annotations         => [],
+            commissionApplied   => $response->{commissionApplied}->{content},
+            currencyCode        => $response->{currencyCode}->{content},
+            includesSettledBets => $response->{includesSettledBets}->{content},
+            includesBspBets     => $response->{includesBspBets}->{content},
+            marketId            => $response->{marketId}->{content},
+            marketName          => $response->{marketName}->{content},
+            marketStatus        => $response->{marketStatus}->{content},
+            unit                => $response->{unit}->{content},
+        };
+        if (exists $response->{annotations}->{'n2:ProfitAndLoss'}) {
+            my $oddsAnnotations = $self->_forceArray($response->{annotations}->{'n2:ProfitAndLoss'});
+            foreach (@$oddsAnnotations) {
+                push @{$profitAndLoss->{annotations}}, {
+                    ifWin           => $_->{ifWin}->{content},
+                    selectionId     => $_->{selectionId}->{content},
+                    selectionName   => $_->{selectionName}->{content},
+                    ifLoss          => $_->{ifLoss}->{content},
+                    to              => $_->{to}->{content},
+                    from            => $_->{from}->{content},
+                };
+            }
+        }
+        return $profitAndLoss; 
+    }
+    return 0;
+}
+
 
 =head2 getMarketTradedVolume
 
@@ -1755,7 +1857,7 @@ asianLineId : integer representing the betfair asian line id - this is optional 
 
 =item *
 
-currencyCode : string representing the three letter ISO currency code. Only certain currencies are accepted by betfair (GBP, USD, EUR, NOK, SGD, SEK, AUD, CAD, HKD, DKK);
+currencyCode : string representing the three letter ISO currency code. Only certain currencies are accepted by betfair GBP, USD, EUR, NOK, SGD, SEK, AUD, CAD, HKD, DKK (optional)
 
 =item *
 
@@ -1811,7 +1913,7 @@ marketId : integer representing the betfair market id to return the market trade
 
 =item *
 
-currencyCode : string representing the three letter ISO currency code. Only certain currencies are accepted by betfair (GBP, USD, EUR, NOK, SGD, SEK, AUD, CAD, HKD, DKK);
+currencyCode : string representing the three letter ISO currency code. Only certain currencies are accepted by betfair GBP, USD, EUR, NOK, SGD, SEK, AUD, CAD, HKD, DKK (optional)
 
 =item *
 
@@ -1836,7 +1938,7 @@ sub getMarketTradedVolumeCompressed {
     };
     return 0 unless $self->_checkParams($checkParams, $args);
     if ($self->_doRequest('getMarketTradedVolumeCompressed', $args)) {
-        my $response = $self->{response}->{'soap:Body'}->{'n:getMarketTradedVolumeCompressedResponse'}->{'n:Result'}->{'tradedVolume'}->{'content'};
+        my $response = $self->{response}->{'soap:Body'}->{'n:getMarketTradedVolumeCompressedResponse'}->{'n:Result'}->{'tradedVolume'}->{content};
         my $marketTradedVolume = { marketId => $args->{marketId} }; 
         foreach my $selection (split /:/, $response) {
             my @selectionFields = split /\|/, $selection;
@@ -1866,8 +1968,6 @@ sub getMarketTradedVolumeCompressed {
 }
 
 =head2 getPrivateMarkets
-
-This method is not available on the free betfair API.
 
 Returns an arrayref of private markets - see L<getPrivateMarkets|http://bdp.betfair.com/docs/GetPrivateMarket.html> for details. Requires a hashref with the following arguments:
 
@@ -1905,7 +2005,7 @@ sub getPrivateMarkets {
     return 0 unless $self->_checkParams($checkParams, $args);
     if ($self->_doRequest('getPrivateMarkets', $args)) {
         my $response = $self->_forceArray(
-            $self->{response}->{'soap:Body'}->{'n:getPrivateMarketsResponse'}->{'n:Result'}->{'privateMarkets'}->{'privateMarket'});
+            $self->{response}->{'soap:Body'}->{'n:getPrivateMarketsResponse'}->{'n:Result'}->{'privateMarkets'}->{'n2:PrivateMarket'});
         my @privateMarkets;
         foreach (@{$response}) {
             push(@privateMarkets, {
@@ -1915,7 +2015,7 @@ sub getPrivateMarkets {
                         eventHierarchy  => $_->{eventHierarchy}->{content},
                     });
         }
-        return 1;
+        return \@privateMarkets;
     }
     return 0;
 }
@@ -2131,11 +2231,11 @@ sub cancelBets {
     sub _add_cancelled_bet {
         my ($cancelled_bets, $bet_to_be_added) = @_;
         push(@$cancelled_bets, {
-            success           => $bet_to_be_added->{'success'}->{'content'},
-            result_code       => $bet_to_be_added->{'resultCode'}->{'content'},
-            size_matched      => $bet_to_be_added->{'sizeMatched'}->{'content'},
-            size_cancelled    => $bet_to_be_added->{'sizeCancelled'}->{'content'},
-            bet_id            => $bet_to_be_added->{'betId'}->{'content'},
+            success           => $bet_to_be_added->{'success'}->{content},
+            result_code       => $bet_to_be_added->{'resultCode'}->{content},
+            size_matched      => $bet_to_be_added->{'sizeMatched'}->{content},
+            size_cancelled    => $bet_to_be_added->{'sizeCancelled'}->{content},
+            bet_id            => $bet_to_be_added->{'betId'}->{content},
         });
         return $cancelled_bets;
     }
@@ -2179,11 +2279,11 @@ sub cancelBetsByMarket {
     my $cancelled_bets = [];
     if ($self->_doRequest('cancelBetsByMarket', $params)) {
         my $response = $self->_forceArray( 
-            $self->{response}->{'soap:Body'}->{'n:cancelBetsByMarketResponse'}->{'n:Result'}->{'n2:CancelBetsByMarketResult'});
+            $self->{response}->{'soap:Body'}->{'n:cancelBetsByMarketResponse'}->{'n:Result'}->{results}->{'n2:CancelBetsByMarketResult'});
         foreach (@{$response} ) {
             push(@$cancelled_bets, {
-                success     => $_->{'marketId'}->{'content'},
-                resultCode  => $_->{'resultCode'}->{'content'},
+                marketId    => $_->{'marketId'}->{content},
+                resultCode  => $_->{'resultCode'}->{content},
             });
         }
         return $cancelled_bets;
@@ -2298,11 +2398,11 @@ sub placeBets {
         my $placed_bets = [];
         foreach (@{$response}) {
             push @{$placed_bets}, {
-            success             => $_->{'success'}->{'content'},
-            result_code         => $_->{'resultCode'}->{'content'},
-            bet_id              => $_->{'betId'}->{'content'},
-            size_matched        => $_->{'sizeMatched'}->{'content'},
-            avg_price_matched   => $_->{'averagePriceMatched'}->{'content'}
+            success             => $_->{'success'}->{content},
+            result_code         => $_->{'resultCode'}->{content},
+            bet_id              => $_->{'betId'}->{content},
+            size_matched        => $_->{'sizeMatched'}->{content},
+            avg_price_matched   => $_->{'averagePriceMatched'}->{content}
             };
         }
         return $placed_bets;
@@ -2405,13 +2505,13 @@ sub updateBets {
         my $response = $self->_forceArray($self->{response}->{'soap:Body'}->{'n:updateBetsResponse'}->{'n:Result'}->{'betResults'}->{'n2:UpdateBetsResult'});
         foreach (@{$response}) {
             push @{$updated_bets}, {
-                success         => $_->{'success'}->{'content'},
-                size_cancelled  => $_->{'sizeCancelled'}->{'content'},
-                new_price       => $_->{'newPrice'}->{'content'},
-                bet_id          => $_->{'betId'}->{'content'},
-                new_bet_id      => $_->{'newBetId'}->{'content'},
-                result_code     => $_->{'content'}->{'content'},
-                new_size        => $_->{'newSize'}->{'content'},
+                success         => $_->{'success'}->{content},
+                size_cancelled  => $_->{'sizeCancelled'}->{content},
+                new_price       => $_->{'newPrice'}->{content},
+                bet_id          => $_->{'betId'}->{content},
+                new_bet_id      => $_->{'newBetId'}->{content},
+                result_code     => $_->{content}->{content},
+                new_size        => $_->{'newSize'}->{content},
             };
         }
         return $updated_bets;
@@ -2552,7 +2652,7 @@ sub addPaymentCard {
 
 =head2 deletePaymentCard
 
-Deletes a registered payment card from your betfair account. See L<http://bdp.betfair.com/docs/deletePaymentCard.html> for further details. Returns the betfair response as a hashref or 0 on failure. Requires:
+Deletes a registered payment card from your betfair account. See L<deletePaymentCard|http://bdp.betfair.com/docs/deletePaymentCard.html> for further details. Returns the betfair response as a hashref or 0 on failure. Requires:
 
 =over
 
@@ -2645,13 +2745,13 @@ sub depositFromPaymentCard {
     if ($self->_doRequest('depositFromPaymentCard', $args)) {
         my $deposit_response = $self->{response}->{'soap:Body'}->{'n:depositFromPaymentCardResponse'}->{'n:Result'};
         return  {
-            fee                 => $deposit_response->{'fee'}->{'content'},
-            transactionId      => $deposit_response->{'transactionId'}->{'content'},
-            minAmount          => $deposit_response->{'minAmount'}->{'content'},
-            errorCode          => $deposit_response->{'errorCode'}->{'content'},
-            minorErrorCode    => $deposit_response->{'minorErrorCode'}->{'content'},
-            maxAmount          => $deposit_response->{'maxAmount'}->{'content'},
-            netAmount          => $deposit_response->{'netAmount'}->{'content'},
+            fee                 => $deposit_response->{'fee'}->{content},
+            transactionId      => $deposit_response->{'transactionId'}->{content},
+            minAmount          => $deposit_response->{'minAmount'}->{content},
+            errorCode          => $deposit_response->{'errorCode'}->{content},
+            minorErrorCode    => $deposit_response->{'minorErrorCode'}->{content},
+            maxAmount          => $deposit_response->{'maxAmount'}->{content},
+            netAmount          => $deposit_response->{'netAmount'}->{content},
         };
     }
     return 0;
@@ -2736,8 +2836,8 @@ sub forgotPassword {
         my $response = $self->{response}->{'soap:Body'}->{'n:forgotPasswordResponse'}->{'n:Result'};
         return 1 if exists $args->{forgottenPasswordAnswer1};
         return  {
-            question1   => $response->{'question1'}->{'content'},
-            question2   => $response->{'question2'}->{'content'},
+            question1   => $response->{'question1'}->{content},
+            question2   => $response->{'question2'}->{content},
         };
     }
     return 0;
@@ -2769,10 +2869,10 @@ sub getAccountFunds {
     return 0 unless $self->_checkParams($checkParams, $args);
     if ($self->_doRequest('getAccountFunds', $args)) {
         return {
-            availBalance => $self->{response}->{'soap:Body'}->{'n:getAccountFundsResponse'}->{'n:Result'}->{'availBalance'}->{'content'},
-            balance => $self->{response}->{'soap:Body'}->{'n:getAccountFundsResponse'}->{'n:Result'}->{'balance'}->{'content'},
-            exposure => $self->{response}->{'soap:Body'}->{'n:getAccountFundsResponse'}->{'n:Result'}->{'exposure'}->{'content'},
-            withdrawBalance => $self->{response}->{'soap:Body'}->{'n:getAccountFundsResponse'}->{'n:Result'}->{'withdrawBalance'}->{'content'}
+            availBalance => $self->{response}->{'soap:Body'}->{'n:getAccountFundsResponse'}->{'n:Result'}->{'availBalance'}->{content},
+            balance => $self->{response}->{'soap:Body'}->{'n:getAccountFundsResponse'}->{'n:Result'}->{'balance'}->{content},
+            exposure => $self->{response}->{'soap:Body'}->{'n:getAccountFundsResponse'}->{'n:Result'}->{'exposure'}->{content},
+            withdrawBalance => $self->{response}->{'soap:Body'}->{'n:getAccountFundsResponse'}->{'n:Result'}->{'withdrawBalance'}->{content}
         };
     } 
     return 0;
@@ -2841,28 +2941,28 @@ sub getAccountStatement {
             $self->_forceArray($self->{response}->{'soap:Body'}->{'n:getAccountStatementResponse'}->{'n:Result'}->{'items'}->{'n2:AccountStatementItem'});
         foreach (@{$response}) {
             push(@account_statement, {
-                betType         => $_->{'betType'}->{'content'},
-                transactionId   => $_->{'transactionId'}->{'content'},
-                transactionType => $_->{'transactionType'}->{'content'},
-                betSize         => $_->{'betSize'}->{'content'},            
-                placedDate      => $_->{'placedDate'}->{'content'},
-                betId           => $_->{'betId'}->{'content'},
-                marketName      => $_->{'marketName'}->{'content'},
-                grossBetAmount  => $_->{'grossBetAmount'}->{'content'},
-                marketType      => $_->{'marketType'}->{'content'},
-                eventId         => $_->{'eventId'}->{'content'},
-                accountBalance  => $_->{'accountBalance'}->{'content'},
-                eventTypeId     => $_->{'eventTypeId'}->{'content'},            
-                betCategoryType => $_->{'betCategoryType'}->{'content'},
-                selectionName   => $_->{'selectionName'}->{'content'},
-                selectionId     => $_->{'selectionId'}->{'content'},
-                commissionRate  => $_->{'commissionRate'}->{'content'},
-                fullMarketName  => $_->{'fullMarketName'}->{'content'},
-                settledDate     => $_->{'settledDate'}->{'content'},
-                avgPrice        => $_->{'avgPrice'}->{'content'},
-                startDate       => $_->{'startDate'}->{'content'},
-                winLose         => $_->{'winLose'}->{'content'},
-                amount          => $_->{'amount'}->{'content'}
+                betType         => $_->{'betType'}->{content},
+                transactionId   => $_->{'transactionId'}->{content},
+                transactionType => $_->{'transactionType'}->{content},
+                betSize         => $_->{'betSize'}->{content},            
+                placedDate      => $_->{'placedDate'}->{content},
+                betId           => $_->{'betId'}->{content},
+                marketName      => $_->{'marketName'}->{content},
+                grossBetAmount  => $_->{'grossBetAmount'}->{content},
+                marketType      => $_->{'marketType'}->{content},
+                eventId         => $_->{'eventId'}->{content},
+                accountBalance  => $_->{'accountBalance'}->{content},
+                eventTypeId     => $_->{'eventTypeId'}->{content},            
+                betCategoryType => $_->{'betCategoryType'}->{content},
+                selectionName   => $_->{'selectionName'}->{content},
+                selectionId     => $_->{'selectionId'}->{content},
+                commissionRate  => $_->{'commissionRate'}->{content},
+                fullMarketName  => $_->{'fullMarketName'}->{content},
+                settledDate     => $_->{'settledDate'}->{content},
+                avgPrice        => $_->{'avgPrice'}->{content},
+                startDate       => $_->{'startDate'}->{content},
+                winLose         => $_->{'winLose'}->{content},
+                amount          => $_->{'amount'}->{content}
             });
         }
         return \@account_statement;
@@ -2881,10 +2981,9 @@ Example
 =cut
 
 sub getPaymentCard {
-    my ($self, $args) = @_;
+    my $self = shift;
     my $payment_cards = [];
-    $args->{exchangeId} = 3;
-    if ($self->_doRequest('getPaymentCard', $args) ) {
+    if ($self->_doRequest('getPaymentCard', {exchangeId => 3})) {
         my $response = $self->_forceArray(
                 $self->{response}->{'soap:Body'}->{'n:getPaymentCardResponse'}->{'n:Result'}->{'paymentCardItems'}->{'n2:PaymentCard'});
         foreach (@{$response}) {
@@ -3240,7 +3339,7 @@ sub selfExclude {
 
 =head2 setChatName
 
-Not available with the free betfair API.
+This service is not available with the free betfair API, nor with the paid personal betfair API.
 
 Sets the chat name of the betfair account. See L<setChatName|http://bdp.betfair.com/docs/SetChatName.html> for details. Returns 1 on success or 0 on failure. Requires the following parameters in a hashref:
 
@@ -3499,11 +3598,10 @@ Example
 
     my $limbMsg = $betfair->submitLimbMessage({
                                         password                => 'itsasecret',
-                                        submitPersonalMessage   => {
-                                            messageId       => 123456789,
-                                            acknowledgement => 'Y',
-                                        },
-                                });
+                                        submitPersonalMessage   => { messageId      => 123456789,
+                                                                     acknowledgement=> 'Y',
+                                                                   },
+                                        });
 
 =cut
 
@@ -3581,7 +3679,7 @@ sub transferFunds {
     if ($self->_doRequest('transferFunds', $args)) {
         my $response = $self->{response}->{'soap:Body'}->{'n:transferFundsResponse'}->{'n:Result'};
         return {
-            monthlyDepositTotal => $response->{'monthlyDepositTotal'}->{'content'},
+            monthlyDepositTotal => $response->{monthlyDepositTotal}->{content},
         };
     }
     return 0;
@@ -3817,7 +3915,7 @@ sub viewReferAndEarn {
     if ($self->_doRequest('viewReferAndEarn', {exchangeId => 3})) {
         my $response = $self->{response}->{'soap:Body'}->{'n:viewReferAndEarnResponse'}->{'n:Result'};
         return {
-            referAndEarnCode => $response->{'referAndEarnCode'}->{'content'},
+            referAndEarnCode => $response->{'referAndEarnCode'}->{content},
         };
     }
     return 0;
@@ -3865,8 +3963,8 @@ sub withdrawToPaymentCard {
     if ($self->_doRequest('withdrawToPaymentCard', $args) ) {
         my $response = $self->{response}->{'soap:Body'}->{'n:withdrawToPaymentCardResponse'}->{'n:Result'};
         return {
-            amountWithdrawn   => $response->{'amountWithdrawn'}->{'content'},
-            maxAmount         => $response->{'maxAmount'}->{'content'}            
+            amountWithdrawn   => $response->{'amountWithdrawn'}->{content},
+            maxAmount         => $response->{'maxAmount'}->{content}            
         };
     }
     return 0;
@@ -3908,14 +4006,14 @@ sub _doRequest {
     if ($self->{response}){
 
         $self->{sessionToken} 
-            = $self->{response}->{'soap:Body'}->{'n:'.$action.'Response'}->{'n:Result'}->{'header'}->{'sessionToken'}->{'content'};
+            = $self->{response}->{'soap:Body'}->{'n:'.$action.'Response'}->{'n:Result'}->{'header'}->{'sessionToken'}->{content};
         
         $self->{headerError}
-            = $self->{response}->{'soap:Body'}->{'n:'.$action.'Response'}->{'n:Result'}->{'header'}->{'errorCode'}->{'content'} 
+            = $self->{response}->{'soap:Body'}->{'n:'.$action.'Response'}->{'n:Result'}->{'header'}->{'errorCode'}->{content} 
                 || 'OK';
 
         $self->{bodyError} 
-            = $self->{response}->{'soap:Body'}->{'n:'.$action.'Response'}->{'n:Result'}->{'errorCode'}->{'content'}
+            = $self->{response}->{'soap:Body'}->{'n:'.$action.'Response'}->{'n:Result'}->{'errorCode'}->{content}
                 || 'OK';
         return 1 if $self->getError eq 'OK';
     }
@@ -3961,26 +4059,26 @@ Pushes a hashref of payment card key / value pairs into an arrayref and returns 
 sub _addPaymentCardLine {
     my ($self, $payment_card, $line_to_be_added) = @_;
     push(@{$payment_card}, {
-        countryCodeIso3     => $line_to_be_added->{'billingCountryIso3'}->{'content'},
-        billingAddress1     => $line_to_be_added->{'billingAddress1'}->{'content'},
-        billingAddress2     => $line_to_be_added->{'billingAddress2'}->{'content'},
-        billingAddress3     => $line_to_be_added->{'billingAddress3'}->{'content'},
-        billingAddress4     => $line_to_be_added->{'billingAddress4'}->{'content'},
-        cardType            => $line_to_be_added->{'cardType'}->{'content'},
-        issuingCountryIso3  => $line_to_be_added->{'issuingCountryIso3'}->{'content'},
-        totalWithdrawals    => $line_to_be_added->{'totalWithdrawals'}->{'content'},
-        expiryDate          => $line_to_be_added->{'expiryDate'}->{'content'},
-        nickName            => $line_to_be_added->{'nickName'}->{'content'},
-        cardStatus          => $line_to_be_added->{'cardStatus'}->{'content'},
-        issueNumber         => $line_to_be_added->{'issueNumber'}->{'content'},
-        country             => $line_to_be_added->{'country'}->{'content'},
-        county              => $line_to_be_added->{'county'}->{'content'},
-        billingName         => $line_to_be_added->{'billingName'}->{'content'},
-        town                => $line_to_be_added->{'town'}->{'content'},
-        postcode            => $line_to_be_added->{'postcode'}->{'content'},
-        netDeposits         => $line_to_be_added->{'netDeposits'}->{'content'},
-        cardShortNumber     => $line_to_be_added->{'cardShortNumber'}->{'content'},
-        totalDeposits       => $line_to_be_added->{'totalDeposits'}->{'content'}            
+        countryCodeIso3     => $line_to_be_added->{'billingCountryIso3'}->{content},
+        billingAddress1     => $line_to_be_added->{'billingAddress1'}->{content},
+        billingAddress2     => $line_to_be_added->{'billingAddress2'}->{content},
+        billingAddress3     => $line_to_be_added->{'billingAddress3'}->{content},
+        billingAddress4     => $line_to_be_added->{'billingAddress4'}->{content},
+        cardType            => $line_to_be_added->{'cardType'}->{content},
+        issuingCountryIso3  => $line_to_be_added->{'issuingCountryIso3'}->{content},
+        totalWithdrawals    => $line_to_be_added->{'totalWithdrawals'}->{content},
+        expiryDate          => $line_to_be_added->{'expiryDate'}->{content},
+        nickName            => $line_to_be_added->{'nickName'}->{content},
+        cardStatus          => $line_to_be_added->{'cardStatus'}->{content},
+        issueNumber         => $line_to_be_added->{'issueNumber'}->{content},
+        country             => $line_to_be_added->{'country'}->{content},
+        county              => $line_to_be_added->{'county'}->{content},
+        billingName         => $line_to_be_added->{'billingName'}->{content},
+        town                => $line_to_be_added->{'town'}->{content},
+        postcode            => $line_to_be_added->{'postcode'}->{content},
+        netDeposits         => $line_to_be_added->{'netDeposits'}->{content},
+        cardShortNumber     => $line_to_be_added->{'cardShortNumber'}->{content},
+        totalDeposits       => $line_to_be_added->{'totalDeposits'}->{content}            
     });
     return $payment_card;
 }
