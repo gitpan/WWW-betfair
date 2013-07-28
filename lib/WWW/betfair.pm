@@ -15,11 +15,11 @@ WWW::betfair - interact with the betfair API using OO Perl
 
 =head1 VERSION
 
-Version 0.14
+Version 1.00
 
 =cut
 
-our $VERSION = '0.14';
+our $VERSION = '1.00';
 
 =head1 WHAT IS BETFAIR?
 
@@ -37,7 +37,7 @@ The betfair API communicates using verbose XML files which contain various bugs 
 
 =item *
 
-Complete documentation of every method with an example method call
+Documentation for every method with an example method call and reference to the original betfair documentation
 
 =item *
 
@@ -169,7 +169,7 @@ sub getHashReceived {
 
 =head2 login
 
-Authenticates the user and starts a session with betfair. This is required before any other methods can be used. Returns 1 on success and 0 on failure. If login fails and you are sure that you are using the correct the credentials, check the $betfair->{error} attribute. A common reason for failure on login is not having a funded betfair account. To resolve this, simply make a deposit into your betfair account and the login should work. See L<http://bdp.betfair.com/docs/Login.html> for details. Required arguments:
+Authenticates the user and starts a session with betfair. This is required before any other methods can be used. Returns 1 on success and 0 on failure. If login fails and you are sure that you are using the correct the credentials, check the $betfair->{error} attribute. A common reason for failure on login is not having a funded betfair account. To resolve this, simply make a deposit into your betfair account and the login should work. See L<login|http://bdp.betfair.com/docs/Login.html> for details. Required arguments:
 
 =over
 
@@ -218,7 +218,7 @@ sub login {
 
 =head2 keepAlive
 
-Refreshes the current session with betfair. Returns 1 on success and 0 on failure. See L<http://bdp.betfair.com/docs/keepAlive.html> for details. Does not require any parameters. This method is not normally required as a session expires after 24 hours of inactivity.
+Refreshes the current session with betfair. Returns 1 on success and 0 on failure. See L<keepAlive|http://bdp.betfair.com/docs/keepAlive.html> for details. Does not require any parameters. This method is not normally required as a session expires after 24 hours of inactivity.
 
 Example
 
@@ -233,7 +233,7 @@ sub keepAlive {
 
 =head2 logout
 
-Closes the current session with betfair. Returns 1 on success and 0 on failure. See L<http://bdp.betfair.com/docs/Logout.html> for details. Does not require any parameters.
+Closes the current session with betfair. Returns 1 on success and 0 on failure. See L<logout|http://bdp.betfair.com/docs/Logout.html> for details. Does not require any parameters.
 
 Example
 
@@ -302,7 +302,7 @@ sub convertCurrency {
 
 =head2 getActiveEventTypes
 
-Returns an array of hashes of active event types or 0 on failure. See L<http://bdp.betfair.com/docs/GetActiveEventTypes.html> for details. Does not require any parameters.
+Returns an array of hashes of active event types or 0 on failure. See L<getActiveEventTypes|http://bdp.betfair.com/docs/GetActiveEventTypes.html> for details. Does not require any parameters.
 
 Example
 
@@ -382,7 +382,7 @@ sub getAllCurrenciesV2 {
 
 =head2 getAllEventTypes
 
-Returns an array of hashes of all event types or 0 on failure. See L<http://bdp.betfair.com/docs/GetAllEventTypes.html> for details. Does not require any parameters.
+Returns an array of hashes of all event types or 0 on failure. See L<getAllEventTypes|http://bdp.betfair.com/docs/GetAllEventTypes.html> for details. Does not require any parameters.
 
 Example
 
@@ -409,7 +409,7 @@ sub getAllEventTypes {
 
 =head2 getAllMarkets
 
-Returns an array of hashes of all markets or 0 on failure. See L<http://bdp.betfair.com/docs/GetAllMarkets.html> for details. Requires a hashref with the following parameters:
+Returns an array of hashes of all markets or 0 on failure. See L<getAllMarkets|http://bdp.betfair.com/docs/GetAllMarkets.html> for details. Requires a hashref with the following parameters:
 
 =over
 
@@ -870,7 +870,7 @@ sub getCompleteMarketPricesCompressed {
 
 =head2 getCurrentBets
 
-Returns an arrayref of hashrefs of current bets or 0 on failure. See L<http://bdp.betfair.com/docs/GetCurrentBets.html> for details. Requires a hashref with the following parameters:
+Returns an arrayref of hashrefs of current bets or 0 on failure. See L<getCurrentBets|http://bdp.betfair.com/docs/GetCurrentBets.html> for details. Requires a hashref with the following parameters:
 
 =over
 
@@ -884,7 +884,7 @@ detailed : string of either true or false
 
 =item *
 
-orderBy : string of a valid BetsOrderByEnum types as defined by betfair  (see L<http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>)
+orderBy : string of a valid BetsOrderByEnum types as defined by betfair  (see L<orderByhttp://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1033170i1033170>)
 
 =item *
 
@@ -1002,7 +1002,7 @@ betStatus : string of a valid BetStatus enum type as defined by betfair see L<be
 
 =item *
 
-orderBy : string of a valid BetsOrderByEnum types as defined by betfair  (see L<http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>)
+orderBy : string of a valid BetsOrderByEnum types as defined by betfair  (see L<orderByhttp://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1033170i1033170>)
 
 =item *
 
@@ -1138,7 +1138,7 @@ sub getDetailAvailableMktDepth {
 
 =head2 getEvents
 
-Returns an array of hashes of events / markets or 0 on failure. See L<http://bdp.betfair.com/docs/GetEvents.html> for details. Requires:
+Returns an array of hashes of events / markets or 0 on failure. See L<getEvents|http://bdp.betfair.com/docs/GetEvents.html> for details. Requires:
 
 =over
 
@@ -1255,7 +1255,7 @@ sub getInPlayMarkets {
 
 =head2 getMarket
 
-Returns a hash of market data or 0 on failure. See L<http://bdp.betfair.com/docs/GetMarket.html> for details. Requires:
+Returns a hash of market data or 0 on failure. See L<getMarket|http://bdp.betfair.com/docs/GetMarket.html> for details. Requires:
 
 =over
 
@@ -1553,13 +1553,13 @@ sub getMarketPricesCompressed {
 
 =head2 getMUBets
 
-Returns an arrayref of hashes of bets or 0 on failure. See L<http://bdp.betfair.com/docs/GetMUBets.html> for details. Requires:
+Returns an arrayref of hashes of bets or 0 on failure. See L<getMUBets|http://bdp.betfair.com/docs/GetMUBets.html> for details. Requires:
 
 =over
 
 =item *
 
-betStatus : string of betfair betStatusEnum type, must be either matched, unmatched or both (M, U, MU). See L<http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>
+betStatus : string of betfair betStatusEnum type, must be either matched, unmatched or both (M, U, MU). See L<http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1028849i1028849>
 
 =item *
 
@@ -1653,13 +1653,13 @@ sub getMUBets {
 
 =head2 getMUBetsLite
 
-Returns an arrayref of hashes of bets or 0 on failure. See L<http://bdp.betfair.com/docs/GetMUBetsLite.html> for details. Requires:
+Returns an arrayref of hashes of bets or 0 on failure. See L<getMUBetsLite|http://bdp.betfair.com/docs/GetMUBetsLite.html> for details. Requires:
 
 =over
 
 =item *
 
-betStatus : string of betfair betStatusEnum type, must be either matched, unmatched or both (M, U, MU). See L<http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>
+betStatus : string of betfair betStatusEnum type, must be either matched, unmatched or both (M, U, MU). See L<http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1028849i1028849>
 
 =item *
 
@@ -2294,7 +2294,7 @@ sub cancelBetsByMarket {
 
 =head2 placeBets
 
-Places up to 60 bets on betfair and returns an array of results or zero on failure. See L<http://bdp.betfair.com/docs/PlaceBets.html> for details. Requires:
+Places up to 60 bets on betfair and returns an array of results or zero on failure. See L<placeBetshttp://bdp.betfair.com/docs/PlaceBets.html> for details. Requires:
 
 =over
 
@@ -2310,11 +2310,11 @@ asianLineId : integer of the ID of the asian handicap market, usually 0 unless b
 
 =item *
 
-betCategoryType : a string of the betCategoryTypeEnum, usually 'E' for exchange, see L<http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html> for details.
+betCategoryType : a string of the betCategoryTypeEnum, usually 'E' for exchange, see L<http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#d83e452> for details.
 
 =item *
 
-betPersistenceType : a string of the betPersistenceTypeEnum, usually 'NONE' for standard exchange bets. See L<http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html> for details.
+betPersistenceType : a string of the betPersistenceTypeEnum, usually 'NONE' for standard exchange bets. See L<http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#d83e531> for details.
 
 =item *
 
@@ -2428,7 +2428,7 @@ betId : integer of the betId to be updated
 
 =item *
 
-newBetPersistenceType : string of the betfair betPersistenceTypeEnum to be updated to see L<http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html> for more details.
+newBetPersistenceType : string of the betfair betPersistenceTypeEnum to be updated to see L<http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#d83e531> for more details.
 
 =item *
 
@@ -2440,7 +2440,7 @@ newSize : number for the new size of the bet
 
 =item *
 
-oldBetPersistenceType : string of the current bet's betfair betPersistenceTypeEnum see L<http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html> for more details.
+oldBetPersistenceType : string of the current bet's betfair betPersistenceTypeEnum see L<http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#d83e531> for more details.
 
 =item *
 
@@ -2524,7 +2524,7 @@ sub updateBets {
 
 =head2 addPaymentCard
 
-Adds a payment card to your betfair account. Returns an arrayref of hashes of payment card responses or 0 on failure. See L<http://bdp.betfair.com/docs/AddPaymentCard.html>. Requires:
+Adds a payment card to your betfair account. Returns an arrayref of hashes of payment card responses or 0 on failure. See L<addPaymentCard|http://bdp.betfair.com/docs/AddPaymentCard.html>. Requires:
 
 =over
 
@@ -2534,7 +2534,7 @@ cardNumber : string of the card number
 
 =item *
 
-cardType : string of a valid betfair cardTypeEnum (e.g. 'VISA'). See L<http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html>
+cardType : string of a valid betfair cardTypeEnum (e.g. 'VISA'). See L<http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1028865i1028865>
 
 =item *
 
@@ -2699,7 +2699,7 @@ sub deletePaymentCard {
 
 =head2 depositFromPaymentCard
 
-Deposits money in your betfair account using a payment card. See L<http://bdp.betfair.com/docs/DepositFromPaymentCard.html> for further details. Returns the betfair response as a hashref or 0 on failure. Requires:
+Deposits money in your betfair account using a payment card. See L<depositFromPaymentCard|http://bdp.betfair.com/docs/DepositFromPaymentCard.html> for further details. Returns the betfair response as a hashref or 0 on failure. Requires:
 
 =over
 
@@ -2761,7 +2761,7 @@ sub depositFromPaymentCard {
 
 NB. This service is largely redundant as it requires an authenticated session to work, however it is included for the sake of completeness.
 
-Resets the betfair account password via a 2 stage process. See L<http://bdp.betfair.com/docs/forgotPassword.html> and the example below for details. Returns the betfair response as a hashref for stage 1, 1 on a successful passwprd reset or 0 on failure. Note that this service can be difficult to succeed with - user the getError method to inspect the response message from betfair. Requires:
+Resets the betfair account password via a 2 stage process. See L<forgotPassword|http://bdp.betfair.com/docs/forgotPassword.html> and the example below for details. Returns the betfair response as a hashref for stage 1, 1 on a successful passwprd reset or 0 on failure. Note that this service can be difficult to succeed with - user the getError method to inspect the response message from betfair. Requires:
 
 =over
 
@@ -2845,7 +2845,7 @@ sub forgotPassword {
 
 =head2 getAccountFunds
 
-Returns a hashref of the account funds betfair response. See L<http://bdp.betfair.com/docs/GetAccountFunds.html> for details. Requires a hashref with the following parameters:
+Returns a hashref of the account funds betfair response. See L<getAccountFunds|http://bdp.betfair.com/docs/GetAccountFunds.html> for details. Requires a hashref with the following parameters:
 
 =over
 
@@ -2880,7 +2880,7 @@ sub getAccountFunds {
 
 =head2 getAccountStatement
 
-Returns an arrayref of hashes of account statement entries or 0 on failure. See L<http://bdp.betfair.com/docs/GetAccountStatement.html> for further details. Requires:
+Returns an arrayref of hashes of account statement entries or 0 on failure. See L<getAccountStatement|http://bdp.betfair.com/docs/GetAccountStatement.html> for further details. Requires:
 
 =over
 
@@ -2902,7 +2902,7 @@ endDate : date for which to return records on or before this date (a string in t
 
 =item *
 
-itemsIncluded : string of the betfair AccountStatementIncludeEnum see l<http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html> for details
+itemsIncluded : string of the betfair AccountStatementIncludeEnum see L<AccountStatementIncludeEnum|http://bdp.betfair.com/docs/BetfairSimpleDataTypes.html#i1028861i1028861> for details
 
 =item *
 
@@ -2972,7 +2972,7 @@ sub getAccountStatement {
 
 =head2 getPaymentCard
 
-Returns an arrayref of hashes of payment card or 0 on failure. See L<http://bdp.betfair.com/docs/GetPaymentCard.html> for details. Does not require any parameters.
+Returns an arrayref of hashes of payment card or 0 on failure. See L<getPaymentCard|http://bdp.betfair.com/docs/GetPaymentCard.html> for details. Does not require any parameters.
 
 Example
 
@@ -3040,7 +3040,7 @@ sub getSubscriptionInfo {
 
 =head2 modifyPassword
 
-Changes the betfair account password. See L<http://bdp.betfair.com/docs/modifyPassword.html> for details. Returns the betfair response as a hashref or 0 on failure. Requires:
+Changes the betfair account password. See L<modifyPassword|http://bdp.betfair.com/docs/modifyPassword.html> for details. Returns the betfair response as a hashref or 0 on failure. Requires:
 
 =over
 
@@ -3687,7 +3687,7 @@ sub transferFunds {
 
 =head2 updatePaymentCard
 
-Updates a payment card on your betfair account. Returns a hashref betfair response or 0 on failure. See L<http://bdp.betfair.com/docs/UpdatePaymentCard.html>. Requires:
+Updates a payment card on your betfair account. Returns a hashref betfair response or 0 on failure. See L<updatePaymentCard|http://bdp.betfair.com/docs/UpdatePaymentCard.html>. Requires:
 
 =over
 
@@ -3923,7 +3923,7 @@ sub viewReferAndEarn {
 
 =head2 withdrawToPaymentCard
 
-Withdraws money from your betfair account to the payment card specified. Returns a hashref of the withdraw response from betfair or 0 on failure. See L<http://bdp.betfair.com/docs/WithdrawToPaymentCard.html> for details. Requires:
+Withdraws money from your betfair account to the payment card specified. Returns a hashref of the withdraw response from betfair or 0 on failure. See L<withdrawToPaymentCard|http://bdp.betfair.com/docs/WithdrawToPaymentCard.html> for details. Requires:
 
 =over
 
