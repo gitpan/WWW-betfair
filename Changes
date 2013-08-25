@@ -1,5 +1,8 @@
 Revision history for perl module WWW::betfair
 
+1.01 2013-08-24
+    - Updated getAllMarkets split to correctly parse the string data.
+
 1.00 2013-07-28
     - Filled missing hyperlink labels to betfair documentation.
     - Filled missing anchor page H2 links to betfair simple data types.

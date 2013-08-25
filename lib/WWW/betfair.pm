@@ -15,11 +15,11 @@ WWW::betfair - interact with the betfair API using OO Perl
 
 =head1 VERSION
 
-Version 1.00
+Version 1.01
 
 =cut
 
-our $VERSION = '1.00';
+our $VERSION = '1.01';
 
 =head1 WHAT IS BETFAIR?
 
@@ -431,8 +431,9 @@ sub getAllMarkets {
     return 0 unless $self->_checkParams($checkParams, $args);
     if ($self->_doRequest('getAllMarkets', $args)) {
         my $all_markets = [];
-        foreach (split /[^\\]:/, $self->{response}->{'soap:Body'}->{'n:getAllMarketsResponse'}->{'n:Result'}->{'marketData'}->{content}) {
-            my @market = split /~/, $_;
+        foreach (split /:/, $self->{response}->{'soap:Body'}->{'n:getAllMarketsResponse'}->{'n:Result'}->{'marketData'}->{content}) {
+            next unless $_;
+            my @market = split /~/;
             push @{$all_markets}, { 
                     marketId            => $market[0], 
                     marketName          => $market[1],         
