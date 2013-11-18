@@ -1,5 +1,8 @@
 Revision history for perl module WWW::betfair
 
+1.02 2013-11-17
+    - Updated betfair.pm POD.
+
 1.01 2013-08-24
     - Updated getAllMarkets split to correctly parse the string data.
 

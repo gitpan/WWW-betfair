@@ -15,11 +15,11 @@ WWW::betfair - interact with the betfair API using OO Perl
 
 =head1 VERSION
 
-Version 1.01
+Version 1.02
 
 =cut
 
-our $VERSION = '1.01';
+our $VERSION = '1.02';
 
 =head1 WHAT IS BETFAIR?
 
@@ -4164,7 +4164,7 @@ sub _clearData {
 
 =head1 AUTHOR
 
-David Farrell, C<< <davidnmfarrell at gmail.com> >>
+David Farrell, C<< <davidnmfarrell at gmail.com> >>, L<perltricks.com|http://perltricks.com>
 
 =head1 BUGS
 
